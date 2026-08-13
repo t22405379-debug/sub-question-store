@@ -9,6 +9,11 @@ binding = "DB"
 database_name = "sub-question-d1"
 database_id = "055c6cf1-5b41-465f-8828-1f16609fe54e"
 
+# Cloudflare R2 Object Storage Bucket Binding (10GB Free Tier)
+[[r2_buckets]]
+binding = "PAPERS_BUCKET"
+bucket_name = "sub-question-r2"
+
 # Environmental Variables
 [vars]
 ENVIRONMENT = "production"
