@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, Shield, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Lock, User, Shield, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -7,8 +7,8 @@ import { showToast } from '../ui/Toast';
 
 export const AdminLogin: React.FC = () => {
   const { login } = useAuth();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +21,7 @@ export const AdminLogin: React.FC = () => {
     setIsLoading(false);
 
     if (res.success) {
-      showToast('Admin logged in', 'Welcome to CSE Question-Paper Archive Admin Suite.');
+      showToast('Admin Logged In', 'Welcome to Admin Control Center.');
     } else {
       setError(res.error || 'Invalid credentials');
     }
@@ -44,7 +44,7 @@ export const AdminLogin: React.FC = () => {
             </div>
             <h2 className="text-xl font-extrabold text-white tracking-tight">Admin Authentication</h2>
             <p className="text-xs text-slate-400 mt-1">
-              Secure access to manage CSE question papers and subjects
+              Protected administrator access for question papers and curriculum
             </p>
           </div>
 
@@ -67,7 +67,7 @@ export const AdminLogin: React.FC = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. admin"
+                placeholder="Enter username"
                 required
               />
             </div>
@@ -91,19 +91,12 @@ export const AdminLogin: React.FC = () => {
               variant="primary"
               size="lg"
               isLoading={isLoading}
-              className="w-full text-sm font-bold shadow-xl shadow-indigo-600/30 mt-2"
+              className="w-full text-sm font-bold shadow-xl shadow-indigo-600/30 mt-2 bg-indigo-600 hover:bg-indigo-500"
             >
               <span>Authenticate &amp; Enter</span>
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </form>
-
-          {/* Default Credentials Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <p className="text-[11px] text-slate-400">
-              Default demo credentials: <code className="text-indigo-400 font-mono font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">admin</code> / <code className="text-indigo-400 font-mono font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">admin123</code>
-            </p>
-          </div>
         </div>
       </div>
     </div>
