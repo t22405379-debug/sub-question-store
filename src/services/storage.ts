@@ -254,27 +254,10 @@ class StorageService {
   }
 
   // ==========================================
-  // 4. EXAM TYPES CRUD (Dynamic)
+  // 4. EXAM TYPES CRUD (100% Dynamic from Database)
   // ==========================================
   public getExamTypes(): ExamType[] {
-    const defaultExams: ExamType[] = [
-      { id: 'exam-mid', name: 'Midterm Exam', code: 'Midterm', color_badge: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30', order_index: 1 },
-      { id: 'exam-final', name: 'Semester Final Exam', code: 'Final', color_badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30', order_index: 2 },
-    ];
-
-    const clean = this.examTypes.filter((e) => {
-      const lower = (e.name || '').toLowerCase();
-      const codeLower = (e.code || '').toLowerCase();
-      return (
-        lower.includes('midterm') ||
-        lower.includes('final') ||
-        codeLower === 'mid' ||
-        codeLower === 'final' ||
-        codeLower === 'midterm'
-      );
-    });
-
-    return (clean.length > 0 ? clean : defaultExams).sort((a, b) => a.order_index - b.order_index);
+    return [...this.examTypes].sort((a, b) => a.order_index - b.order_index);
   }
 
   public addExamType(name: string, code: string, color_badge?: string): ExamType {
@@ -300,6 +283,8 @@ class StorageService {
   }
 
   public deleteExamType(id: string): boolean {
+    this.papers = this.papers.filter((p) => p.exam_type_id !== id);
+    this.savePapers();
     this.examTypes = this.examTypes.filter((e) => e.id !== id);
     this.saveExamTypes();
     return true;
