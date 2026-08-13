@@ -52,7 +52,62 @@ export default {
         );
       }
 
-      // 2. Query Subjects from D1
+      // 2. Admin Authentication via Cloudflare D1 SQL (Zero Hardcoding)
+      if (path === '/api/admin/login' && request.method === 'POST') {
+        if (!env.DB) {
+          return jsonResponse({ success: false, error: 'D1 database not connected' }, corsHeaders, 500);
+        }
+
+        const { username, password } = await request.json() as any;
+        if (!username || !password) {
+          return jsonResponse({ success: false, error: 'Username and password required' }, corsHeaders, 400);
+        }
+
+        const userRow = await env.DB.prepare(
+          'SELECT id, username, password_hash, salt, display_name, role FROM admin_users WHERE username = ?'
+        )
+          .bind(username.trim())
+          .first<{
+            id: string;
+            username: string;
+            password_hash: string;
+            salt: string;
+            display_name: string;
+            role: string;
+          }>();
+
+        if (!userRow) {
+          return jsonResponse({ success: false, error: 'Invalid credentials' }, corsHeaders, 401);
+        }
+
+        // Verify PBKDF2 hash using Web Crypto API
+        const computedHash = await pbkdf2Hash(password, userRow.salt);
+        if (computedHash !== userRow.password_hash) {
+          return jsonResponse({ success: false, error: 'Invalid credentials' }, corsHeaders, 401);
+        }
+
+        // Update last login
+        await env.DB.prepare('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?')
+          .bind(userRow.id)
+          .run();
+
+        const token = `cf_${Date.now()}_${crypto.randomUUID()}`;
+        return jsonResponse(
+          {
+            success: true,
+            token,
+            user: {
+              id: userRow.id,
+              username: userRow.username,
+              display_name: userRow.display_name,
+              role: userRow.role,
+            },
+          },
+          corsHeaders
+        );
+      }
+
+      // 3. Query Subjects from D1
       if (path === '/api/subjects' && request.method === 'GET') {
         const yearId = url.searchParams.get('yearId') || undefined;
         const semId = url.searchParams.get('semesterId') || undefined;
@@ -63,7 +118,7 @@ export default {
         return jsonResponse([], corsHeaders);
       }
 
-      // 3. Query Question Papers from D1
+      // 4. Query Question Papers from D1
       if (path === '/api/papers' && request.method === 'GET') {
         const isAdmin = url.searchParams.get('admin') === 'true';
         if (env.DB) {
@@ -77,7 +132,7 @@ export default {
         return jsonResponse([], corsHeaders);
       }
 
-      // 4. Upload File Directly to R2 Bucket
+      // 5. Upload File Directly to R2 Bucket
       if (path === '/api/papers/upload' && request.method === 'POST') {
         if (!env.PAPERS_BUCKET) {
           return jsonResponse({ error: 'R2 bucket PAPERS_BUCKET is not bound in Cloudflare' }, corsHeaders, 500);
@@ -85,7 +140,7 @@ export default {
 
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const key = formData.get('key') as string || `papers/${Date.now()}_${file?.name || 'scan.webp'}`;
+        const key = (formData.get('key') as string) || `papers/${Date.now()}_${file?.name || 'scan.webp'}`;
 
         if (!file) {
           return jsonResponse({ error: 'No file provided' }, corsHeaders, 400);
@@ -110,7 +165,7 @@ export default {
         );
       }
 
-      // 5. Download / Stream Paper Directly from R2 Bucket
+      // 6. Download / Stream Paper Directly from R2 Bucket
       if (path.startsWith('/api/papers/') && path.endsWith('/file') && request.method === 'GET') {
         if (!env.PAPERS_BUCKET) {
           return new Response('R2 bucket not bound', { status: 500, headers: corsHeaders });
@@ -123,7 +178,7 @@ export default {
         return fileResponse;
       }
 
-      // 6. Increment download count in D1
+      // 7. Increment download count in D1
       if (path.startsWith('/api/papers/') && path.endsWith('/download') && request.method === 'POST') {
         const id = path.split('/')[3];
         if (env.DB) {
@@ -139,6 +194,42 @@ export default {
     }
   },
 };
+
+// PBKDF2 Web Cryptography hasher for Edge Runtime
+async function pbkdf2Hash(password: string, saltHex: string): Promise<string> {
+  const enc = new TextEncoder();
+  const salt = hexToBuffer(saltHex);
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, [
+    'deriveBits',
+  ]);
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+
+  return bufferToHex(derivedBits);
+}
+
+function hexToBuffer(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+function bufferToHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 function jsonResponse(data: any, headers: Record<string, string>, status = 200) {
   return new Response(JSON.stringify(data), {
