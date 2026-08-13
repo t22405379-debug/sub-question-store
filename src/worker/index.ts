@@ -196,7 +196,7 @@ export default {
 // PBKDF2 Web Cryptography hasher for Edge Runtime
 async function pbkdf2Hash(password: string, saltHex: string): Promise<string> {
   const enc = new TextEncoder();
-  const salt = hexToBuffer(saltHex);
+  const salt = enc.encode(saltHex);
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, [
     'deriveBits',
   ]);
