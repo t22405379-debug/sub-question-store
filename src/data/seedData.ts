@@ -22,13 +22,8 @@ export const SEED_SEMESTERS: Semester[] = [
 ];
 
 export const SEED_EXAM_TYPES: ExamType[] = [
-  { id: 'exam-ct', name: 'Class Test (CT)', code: 'CT', color_badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30', order_index: 1 },
-  { id: 'exam-mid', name: 'Midterm Exam', code: 'Midterm', color_badge: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30', order_index: 2 },
-  { id: 'exam-final', name: 'Final Semester Exam', code: 'Final', color_badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30', order_index: 3 },
-  { id: 'exam-lab', name: 'Lab / Practical Exam', code: 'Lab', color_badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', order_index: 4 },
-  { id: 'exam-pres', name: 'Presentation & Viva', code: 'Presentation', color_badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30', order_index: 5 },
-  { id: 'exam-assign', name: 'Assignment Paper', code: 'Assignment', color_badge: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30', order_index: 6 },
-  { id: 'exam-other', name: 'Other Assessment', code: 'Other', color_badge: 'bg-slate-500/15 text-slate-300 border-slate-500/30', order_index: 7 },
+  { id: 'exam-mid', name: 'Midterm Exam', code: 'Midterm', color_badge: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30', order_index: 1 },
+  { id: 'exam-final', name: 'Semester Final Exam', code: 'Final', color_badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30', order_index: 2 },
 ];
 
 export const SEED_SUBJECTS: Subject[] = [
