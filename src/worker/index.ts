@@ -76,17 +76,15 @@ export default {
             role: string;
           }>();
 
-        if (!userRow) {
-          return jsonResponse({ success: false, error: 'Invalid credentials' }, corsHeaders, 401);
-        }
-
-        // Verify PBKDF2 hash using Web Crypto API
+        // Verify PBKDF2 hash with 100,000 iterations using Web Crypto API
         const computedHash = await pbkdf2Hash(password, userRow.salt);
-        if (computedHash !== userRow.password_hash) {
+        const isMatch = timingSafeEqual(computedHash, userRow.password_hash);
+
+        if (!isMatch) {
           return jsonResponse({ success: false, error: 'Invalid credentials' }, corsHeaders, 401);
         }
 
-        // Update last login
+        // Update last login timestamp in D1
         await env.DB.prepare('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?')
           .bind(userRow.id)
           .run();
@@ -215,6 +213,15 @@ async function pbkdf2Hash(password: string, saltHex: string): Promise<string> {
   );
 
   return bufferToHex(derivedBits);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 function hexToBuffer(hex: string): Uint8Array {
