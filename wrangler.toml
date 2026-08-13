@@ -1,0 +1,19 @@
+name = "sub-question-store"
+main = "src/worker/index.ts"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare D1 Database Binding (Connected to Cloudflare Free Tier)
+[[d1_databases]]
+binding = "DB"
+database_name = "sub-question-d1"
+database_id = "055c6cf1-5b41-465f-8828-1f16609fe54e"
+
+# Static site serving (Cloudflare Pages or Workers Assets)
+[site]
+bucket = "./dist"
+
+# Environmental Variables / Secrets
+[vars]
+ENVIRONMENT = "production"
+MAX_UPLOAD_SIZE_BYTES = "25165824" # 24 MB max file upload limit
