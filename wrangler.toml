@@ -1,5 +1,5 @@
 name = "sub-question-store"
-main = "src/worker/index.ts"
+pages_build_output_dir = "dist"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -9,11 +9,7 @@ binding = "DB"
 database_name = "sub-question-d1"
 database_id = "055c6cf1-5b41-465f-8828-1f16609fe54e"
 
-# Static site serving (Cloudflare Pages or Workers Assets)
-[site]
-bucket = "./dist"
-
-# Environmental Variables / Secrets
+# Environmental Variables
 [vars]
 ENVIRONMENT = "production"
 MAX_UPLOAD_SIZE_BYTES = "25165824" # 24 MB max file upload limit
