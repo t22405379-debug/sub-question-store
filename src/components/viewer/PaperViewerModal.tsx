@@ -17,9 +17,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  FileDown,
 } from 'lucide-react';
 import { usePapers } from '../../context/PaperContext';
 import { studyTrackerService } from '../../services/studyTracker';
+import { exportPaperToPdf } from '../../services/pdfExporter';
 import { Button } from '../ui/Button';
 import { formatBytes } from '../../services/imageOptimizer';
 import { QRCodeModal } from '../ui/QRCodeModal';
@@ -41,6 +43,7 @@ export const PaperViewerModal: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Practiced Tracker, Personal Notes & Modals
   const [isPracticed, setIsPracticed] = useState(false);
@@ -153,6 +156,19 @@ export const PaperViewerModal: React.FC = () => {
     showToast('Download Started', `${paper.file_name} fast download started.`);
   };
 
+  const handleExportPdf = async () => {
+    try {
+      setIsExportingPdf(true);
+      recordDownload(paper.id);
+      await exportPaperToPdf(paper);
+      showToast('PDF Exported', `${paper.course_code} multi-page PDF booklet generated.`);
+    } catch (err: any) {
+      showToast('PDF Export Failed', err.message || 'Error creating PDF', 'error');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   // 1-Click Multi-Page Clean A4 Print
   const handlePrintPaper = () => {
     const printWindow = window.open('', '_blank');
@@ -251,7 +267,7 @@ export const PaperViewerModal: React.FC = () => {
 
             {/* Action Toolbar */}
             <div className="flex items-center gap-1 sm:gap-2">
-              {/* Multi-Page Navigation Slider (If paper has multiple pages) */}
+              {/* Multi-Page Navigation Slider */}
               {totalPages > 1 ? (
                 <div className="flex items-center bg-indigo-950/60 border border-indigo-500/40 rounded-xl p-0.5">
                   <button
@@ -385,7 +401,7 @@ export const PaperViewerModal: React.FC = () => {
                 <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-amber-400 text-amber-400' : ''}`} />
               </Button>
 
-              {/* Fullscreen Toggle (desktop) */}
+              {/* Fullscreen Toggle */}
               <Button
                 variant="outline"
                 size="icon"
@@ -575,6 +591,17 @@ export const PaperViewerModal: React.FC = () => {
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Download Page {activePageIndex + 1}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportPdf}
+                      isLoading={isExportingPdf}
+                      className="w-full text-xs text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/10"
+                    >
+                      <FileDown className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+                      Export Merged PDF Booklet
                     </Button>
 
                     <Button

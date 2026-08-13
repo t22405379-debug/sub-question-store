@@ -10,6 +10,7 @@ import {
   Building,
 } from 'lucide-react';
 import { usePapers } from '../../context/PaperContext';
+import { downloadPapersAsZip } from '../../services/zipExporter';
 import { PaperCard } from './PaperCard';
 
 interface HierarchyStepperProps {
@@ -104,10 +105,25 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
               {subjectPapers.length} {subjectPapers.length === 1 ? 'Paper' : 'Papers'} in Archive
             </span>
+            {subjectPapers.length > 0 && (
+              <button
+                onClick={() => {
+                  downloadPapersAsZip(
+                    filteredByExam.length > 0 ? filteredByExam : subjectPapers,
+                    `${currentSubject.code}_Study_Pack.zip`
+                  );
+                }}
+                className="text-xs font-bold text-indigo-300 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                title="Download all question papers in this subject as a ZIP file"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Download Study Pack (ZIP)</span>
+              </button>
+            )}
           </div>
         </div>
 

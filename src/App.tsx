@@ -9,6 +9,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { SearchModal } from './components/explorer/SearchModal';
 import { PaperViewerModal } from './components/viewer/PaperViewerModal';
 import { ToastContainer } from './components/ui/Toast';
+import { PWAInstallBanner } from './components/ui/PWAInstallBanner';
 
 export function AppContent() {
   const [activeTab, setActiveTab] = useState<'explorer' | 'admin' | 'bookmarks'>('explorer');
@@ -57,6 +58,7 @@ export function AppContent() {
       {/* Global Modals & Notifications */}
       <SearchModal />
       <PaperViewerModal />
+      <PWAInstallBanner />
       <ToastContainer />
 
       {/* Mobile Bottom Navigation Bar (Students Only) */}
