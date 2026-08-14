@@ -225,49 +225,65 @@ export default {
           '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Lightning Fast)',
         };
 
-        // Smart Model Selector: Route to the optimal model based on query context
+        // Comprehensive Smart Model Classifier
         let targetModel = requestedModel;
+        const queryText = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
+
+        const isCircuitQuery =
+          queryText.includes('circuit') ||
+          queryText.includes('circut') ||
+          queryText.includes('eee') ||
+          queryText.includes('kcl') ||
+          queryText.includes('kvl') ||
+          queryText.includes('thevenin') ||
+          queryText.includes('norton') ||
+          queryText.includes('voltage') ||
+          queryText.includes('current') ||
+          queryText.includes('resistor') ||
+          queryText.includes('capacitor') ||
+          queryText.includes('inductor') ||
+          queryText.includes('diode') ||
+          queryText.includes('transistor') ||
+          queryText.includes('ohm') ||
+          queryText.includes('impedance') ||
+          queryText.includes('mesh') ||
+          queryText.includes('node') ||
+          queryText.includes('physics');
+
+        const isCodeQuery =
+          queryText.includes('code') ||
+          queryText.includes('c++') ||
+          queryText.includes('java') ||
+          queryText.includes('python') ||
+          queryText.includes('algorithm') ||
+          queryText.includes('complexity') ||
+          queryText.includes('pointer') ||
+          queryText.includes('function') ||
+          queryText.includes('stdio') ||
+          queryText.includes('cse') ||
+          queryText.includes('program') ||
+          queryText.includes('sql');
+
+        const isMathQuery =
+          queryText.includes('math') ||
+          queryText.includes('proof') ||
+          queryText.includes('integral') ||
+          queryText.includes('derivative') ||
+          queryText.includes('calculus') ||
+          queryText.includes('matrix') ||
+          queryText.includes('probability');
+
         if (targetModel === 'auto') {
-          if (imageDataUrl) {
-            targetModel = '@cf/moondream/moondream3.1-9B-A2B'; // Vision model
+          if (isCircuitQuery) {
+            targetModel = '@cf/qwen/qwq-32b'; // Qwen QwQ is the #1 Circuit & Physics Specialist
+          } else if (isCodeQuery) {
+            targetModel = '@cf/qwen/qwen2.5-coder-32b-instruct'; // Qwen 2.5 Coder is the #1 Programming Master
+          } else if (isMathQuery) {
+            targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // DeepSeek R1 Math Specialist
+          } else if (queryText.includes('concept') || queryText.includes('definition') || queryText.includes('theory')) {
+            targetModel = '@cf/google/gemma-4-26b-a4b-it'; // Google Gemma Gemini-Core
           } else {
-            const lower = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
-            if (
-              lower.includes('code') ||
-              lower.includes('c++') ||
-              lower.includes('java') ||
-              lower.includes('python') ||
-              lower.includes('algorithm') ||
-              lower.includes('complexity') ||
-              lower.includes('pointer') ||
-              lower.includes('function') ||
-              lower.includes('sql')
-            ) {
-              targetModel = '@cf/qwen/qwen2.5-coder-32b-instruct'; // Top coding model
-            } else if (
-              lower.includes('math') ||
-              lower.includes('proof') ||
-              lower.includes('integral') ||
-              lower.includes('derivative') ||
-              lower.includes('calculus') ||
-              lower.includes('matrix') ||
-              lower.includes('probability')
-            ) {
-              targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // DeepSeek math reasoning
-            } else if (
-              lower.includes('circuit') ||
-              lower.includes('voltage') ||
-              lower.includes('current') ||
-              lower.includes('impedance') ||
-              lower.includes('thevenin') ||
-              lower.includes('physics')
-            ) {
-              targetModel = '@cf/qwen/qwq-32b'; // Engineering equations
-            } else if (lower.includes('concept') || lower.includes('definition') || lower.includes('theory')) {
-              targetModel = '@cf/google/gemma-4-26b-a4b-it'; // Google theory model
-            } else {
-              targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Top flagship tutor
-            }
+            targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Meta 70B Flagship Tutor
           }
         }
 
@@ -309,7 +325,7 @@ export default {
           if (imageBytes && imageBytes.length > 0) {
             try {
               const visionResult: any = await env.AI.run('@cf/moondream/moondream3.1-9B-A2B', {
-                prompt: 'Read all handwritten code, text, questions, and numbers in this image. Transcribe the programming language (e.g. C with #include <stdio.h>), variable names, logic, and question statement exactly as written.',
+                prompt: 'Read all handwritten code, text, questions, numbers, circuits, and formulas in this image. Transcribe everything exactly as written.',
                 image: imageBytes,
               });
               transcribedContext = visionResult?.description || visionResult?.response || visionResult?.result || '';
@@ -323,29 +339,14 @@ export default {
             ? `[QUESTION PAPER SCAN TRANSCRIPTION]:\n${transcribedContext}\n\n[STUDENT REQUEST]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}`
             : prompt || 'Explain and solve this examination topic step-by-step.';
 
-          // Model cascade execution
-          const combinedLower = (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase();
-          const isCodeQuery =
-            combinedLower.includes('code') ||
-            combinedLower.includes('c++') ||
-            combinedLower.includes('stdio.h') ||
-            combinedLower.includes('include') ||
-            combinedLower.includes('main()') ||
-            combinedLower.includes('int ') ||
-            combinedLower.includes('program');
-
-          const modelsToTry = isCodeQuery
-            ? [
-                '@cf/qwen/qwen2.5-coder-32b-instruct',
-                '@cf/meta/llama-3.3-70b-instruct',
-                '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-              ]
-            : [
-                targetModel === 'auto' ? '@cf/meta/llama-3.3-70b-instruct' : targetModel,
-                '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-                '@cf/meta/llama-3.3-70b-instruct',
-                '@cf/meta/llama-3.1-8b-instruct',
-              ];
+          // Model cascade execution: Prioritize user-chosen or auto-detected targetModel FIRST
+          const modelsToTry = [
+            targetModel,
+            isCircuitQuery ? '@cf/qwen/qwq-32b' : isCodeQuery ? '@cf/qwen/qwen2.5-coder-32b-instruct' : '@cf/meta/llama-3.3-70b-instruct',
+            '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+            '@cf/meta/llama-3.3-70b-instruct',
+            '@cf/meta/llama-3.1-8b-instruct',
+          ].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
 
           for (const modelName of modelsToTry) {
             try {
