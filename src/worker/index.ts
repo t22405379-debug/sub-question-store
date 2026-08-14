@@ -309,7 +309,7 @@ export default {
           if (imageBytes && imageBytes.length > 0) {
             try {
               const visionResult: any = await env.AI.run('@cf/moondream/moondream3.1-9B-A2B', {
-                prompt: 'Transcribe all handwritten code, questions, mathematical formulas, and diagrams shown in this examination paper image in complete detail.',
+                prompt: 'Read all handwritten code, text, questions, and numbers in this image. Transcribe the programming language (e.g. C with #include <stdio.h>), variable names, logic, and question statement exactly as written.',
                 image: imageBytes,
               });
               transcribedContext = visionResult?.description || visionResult?.response || visionResult?.result || '';
@@ -320,14 +320,19 @@ export default {
 
           // Combine prompt with transcribed image content
           const fullUserQuery = transcribedContext
-            ? `[QUESTION PAPER SCAN OCR TRANSCRIPTION]:\n${transcribedContext}\n\n[USER INSTRUCTION / QUESTION]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}`
+            ? `[QUESTION PAPER SCAN TRANSCRIPTION]:\n${transcribedContext}\n\n[STUDENT REQUEST]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}`
             : prompt || 'Explain and solve this examination topic step-by-step.';
 
           // Model cascade execution
+          const combinedLower = (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase();
           const isCodeQuery =
-            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('code') ||
-            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('c++') ||
-            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('program');
+            combinedLower.includes('code') ||
+            combinedLower.includes('c++') ||
+            combinedLower.includes('stdio.h') ||
+            combinedLower.includes('include') ||
+            combinedLower.includes('main()') ||
+            combinedLower.includes('int ') ||
+            combinedLower.includes('program');
 
           const modelsToTry = isCodeQuery
             ? [
@@ -349,12 +354,16 @@ export default {
                 messages: [
                   {
                     role: 'system',
-                    content: `You are an expert University Examination Professor and Senior Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
-The student has provided an exam question or handwritten camera scan.
-1. Read the student's question and any provided handwritten OCR scan carefully.
-2. If it is a programming question (C/C++/Java/Python), write COMPLETE, BUG-FREE, OPTIMIZED, AND READY-TO-RUN code with comments, input/output trace, and clear explanation of corrections made.
-3. If it is a mathematics or engineering question, provide full step-by-step derivation with formulas.
-Format with clean markdown headers and fenced code blocks.`,
+                    content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
+The student has provided an exam question or handwritten paper scan.
+
+CRITICAL INSTRUCTIONS:
+1. LANGUAGE FIDELITY: Detect the exact programming language from the handwriting scan (e.g. if C code with '#include <stdio.h>' or 'printf' is shown, write in C! NEVER output Python unless explicitly asked to translate).
+2. PROBLEM FIDELITY: If the handwritten scan shows a digit counting problem (like 'Count num : 55297' or 'while(n!=0) { n=n/10; count++; }'), you MUST solve and perfect that EXACT digit counting problem.
+3. PERFECT CODE QUALITY: Provide COMPLETE, BUG-FREE, OPTIMIZED, AND READY-TO-RUN code with input handling for edge cases (like n=0 and negative numbers), comments, and clear explanation of fixes made.
+4. If it is a mathematics/circuits question, provide full step-by-step formula derivations.
+
+Format with clean markdown headers and formatted code blocks.`,
                   },
                   {
                     role: 'user',
@@ -365,9 +374,8 @@ Format with clean markdown headers and fenced code blocks.`,
 
               let answer = aiResult?.response || aiResult?.result || aiResult?.description;
               if (answer) {
-                // If we transcribed an image, prepend a subtle notice showing what was read
                 if (transcribedContext && !answer.includes(transcribedContext.slice(0, 30))) {
-                  answer = `### 📸 Handwriting / Diagram Detected from Scan:\n> *${transcribedContext.trim()}*\n\n---\n\n${answer}`;
+                  answer = `### 📸 Handwriting Detected from Scan:\n> *${transcribedContext.trim()}*\n\n---\n\n${answer}`;
                 }
 
                 return jsonResponse(

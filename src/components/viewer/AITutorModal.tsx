@@ -213,6 +213,30 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
     setAnswer(null);
     setModelUsedName(null);
 
+    // Preload & compress image to Base64 JPEG data URL if needed
+    let payloadImage = includeImage && imageSrc ? imageSrc : undefined;
+    if (payloadImage && !payloadImage.startsWith('data:')) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = payloadImage!;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(img.width, 1024);
+        canvas.height = Math.min(img.height, Math.round((img.height * canvas.width) / img.width));
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          payloadImage = canvas.toDataURL('image/jpeg', 0.85);
+        }
+      } catch (e) {
+        console.warn('Canvas image encoding fallback:', e);
+      }
+    }
+
     try {
       const res = await fetch('/api/ai/ask', {
         method: 'POST',
@@ -224,7 +248,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           examType: paper.exam_type_name,
           sessionYear: paper.session_year,
           model: selectedModel,
-          image: includeImage && imageSrc ? imageSrc : undefined,
+          image: payloadImage,
         }),
       });
 
@@ -252,20 +276,20 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
 
   const quickPrompts = [
     {
-      label: 'Solve Question 1 (With Formulas)',
-      text: 'Provide a complete step-by-step mathematical/code solution for Question 1 with all intermediate formulas.',
+      label: 'Perfect & Fix This Code in C',
+      text: 'Analyze the handwritten C code in this scan. Provide the complete, bug-free, and optimized C program with proper edge case handling (0 and negative numbers), comments, and trace table.',
     },
     {
-      label: 'Read Diagram & Calculate Values',
-      text: 'Analyze the circuit or diagram in this paper and compute the theoretical values step-by-step.',
+      label: 'Trace Algorithm & Step-by-Step Table',
+      text: 'Trace the algorithm in this paper with step-by-step variable values and dry run table.',
     },
     {
-      label: 'Algorithmic Code Breakdown',
-      text: 'Provide clean, optimized C++/Java code and explain time complexity for the programming question.',
+      label: 'Read Diagram / Formula & Solve',
+      text: 'Analyze the circuit or mathematical problem in this scan and compute the step-by-step solution.',
     },
     {
-      label: 'Exam Traps & Scoring Tips',
-      text: 'What are the most common student mistakes on these topics and how to achieve full marks in the exam?',
+      label: 'Common Exam Traps & Edge Cases',
+      text: 'What are the common student mistakes in this specific question and how to get full marks?',
     },
   ];
 
