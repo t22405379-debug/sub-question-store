@@ -52,58 +52,7 @@ interface AIModelOption {
 }
 
 const ALL_FREE_MODELS: AIModelOption[] = [
-  // Flagship University Professor
-  {
-    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-    name: 'Meta Llama 3.3 (70B)',
-    badge: 'Flagship Tutor',
-    category: 'general',
-    size: '70B FP8',
-    icon: <Cpu className="w-4 h-4 text-indigo-400" />,
-    description: 'Flagship 70B parameter university examination professor across all academic topics',
-  },
-
-  // Code & Algorithm Masters
-  {
-    id: '@cf/qwen/qwen2.5-coder-32b-instruct',
-    name: 'Qwen 2.5 Coder (32B)',
-    badge: '#1 Code Master',
-    category: 'code',
-    size: '32B',
-    icon: <Code2 className="w-4 h-4 text-teal-400" />,
-    description: 'Top-tier code generation for C, C++, Java, Python, and DSA algorithms',
-  },
-  {
-    id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
-    name: 'Mistral Small 3.1 (24B)',
-    badge: 'Logic & Automata',
-    category: 'code',
-    size: '24B',
-    icon: <Terminal className="w-4 h-4 text-emerald-400" />,
-    description: 'Specialist for Automata theory, Compilers, Grammars, and Algorithmic Logic',
-  },
-
-  // Math & Circuits Specialist Models
-  {
-    id: '@cf/qwen/qwq-32b',
-    name: 'Qwen QwQ (32B)',
-    badge: 'Circuits & Physics',
-    category: 'math',
-    size: '32B',
-    icon: <Layers className="w-4 h-4 text-blue-400" />,
-    description: 'Specialized in circuit analysis, electronics, thermodynamics, and analytical equations',
-  },
-  {
-    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-    name: 'DeepSeek R1 (32B)',
-    badge: 'Math Proofs',
-    category: 'math',
-    size: '32B',
-    icon: <Brain className="w-4 h-4 text-purple-400" />,
-    description: 'Deep step-by-step mathematical reasoning, proofs, calculus, and matrix algebra',
-  },
-
-  // Vision & OCR Models
+  // Vision Models
   {
     id: '@cf/moondream/moondream3.1-9B-A2B',
     name: 'Moondream 3.1 Vision',
@@ -113,25 +62,110 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     icon: <Eye className="w-4 h-4 text-emerald-400" />,
     description: 'Reads handwritten exams, circuit diagrams, and graphs directly from scans',
   },
-
-  // Fast & Low Latency Revision Tutors
   {
-    id: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
-    name: 'Llama 3.1 (8B Fast)',
-    badge: 'Lightning Fast',
-    category: 'general',
-    size: '8B FP8',
-    icon: <Flame className="w-4 h-4 text-rose-400" />,
-    description: 'Ultra-fast low-latency answers, quick summaries, and flashcards',
+    id: '@cf/meta/llama-3.2-11b-vision-instruct',
+    name: 'Llama 3.2 Vision',
+    badge: 'Visual Reasoning',
+    category: 'vision',
+    size: '11B',
+    icon: <Camera className="w-4 h-4 text-cyan-400" />,
+    description: 'Meta 11B Vision model for fine visual recognition & problem solving',
   },
   {
-    id: '@cf/meta/llama-3.2-3b-instruct',
-    name: 'Llama 3.2 (3B Mini)',
-    badge: 'Instant Helper',
+    id: '@cf/meta/llama-4-scout-17b-16e-instruct',
+    name: 'Llama 4 Scout',
+    badge: 'Multimodal MoE',
+    category: 'vision',
+    size: '17B MoE',
+    icon: <Layers className="w-4 h-4 text-indigo-400" />,
+    description: '17B parameter mixture-of-experts multimodal architecture',
+  },
+
+  // Code Masters
+  {
+    id: '@cf/qwen/qwen2.5-coder-32b-instruct',
+    name: 'Qwen 2.5 Coder',
+    badge: '#1 Code Master',
+    category: 'code',
+    size: '32B',
+    icon: <Code2 className="w-4 h-4 text-teal-400" />,
+    description: 'Top-tier code generation for C, C++, Java, Python, and DSA algorithms',
+  },
+  {
+    id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
+    name: 'Mistral Small 3.1',
+    badge: 'Logic & Code',
+    category: 'code',
+    size: '24B',
+    icon: <Terminal className="w-4 h-4 text-emerald-400" />,
+    description: 'State-of-the-art coding and logic reasoning by Mistral AI',
+  },
+  {
+    id: '@cf/mistral/mistral-7b-instruct-v0.2',
+    name: 'Mistral 7B Code',
+    badge: 'Fast Code',
+    category: 'code',
+    size: '7B',
+    icon: <Binary className="w-4 h-4 text-cyan-400" />,
+    description: 'Lightweight and fast code solver for programming exams',
+  },
+
+  // Math & Circuits Specialist Models
+  {
+    id: '@cf/qwen/qwq-32b',
+    name: 'Qwen QwQ',
+    badge: 'Circuits & Physics',
+    category: 'math',
+    size: '32B',
+    icon: <Layers className="w-4 h-4 text-blue-400" />,
+    description: 'Specialized in circuit analysis, electronics, thermodynamics, and analytical equations',
+  },
+  {
+    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+    name: 'DeepSeek R1',
+    badge: 'Math Proofs',
+    category: 'math',
+    size: '32B',
+    icon: <Brain className="w-4 h-4 text-purple-400" />,
+    description: 'Deep step-by-step mathematical reasoning, proofs, and calculus',
+  },
+  {
+    id: '@cf/openai/gpt-oss-120b',
+    name: 'OpenAI GPT-OSS',
+    badge: 'Massive MoE',
+    category: 'math',
+    size: '120B',
+    icon: <Sparkles className="w-4 h-4 text-rose-400" />,
+    description: 'Massive 120B open-weight reasoning and logic model',
+  },
+
+  // Flagship University Tutors
+  {
+    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    name: 'Meta Llama 3.3 Fast',
+    badge: 'Flagship Tutor',
     category: 'general',
-    size: '3B',
+    size: '70B FP8',
+    icon: <Cpu className="w-4 h-4 text-indigo-400" />,
+    description: 'Flagship 70B parameter general university professor across all topics',
+  },
+  {
+    id: '@cf/google/gemma-7b-it',
+    name: 'Google Gemma',
+    badge: 'Theory Concepts',
+    category: 'general',
+    size: '7B',
     icon: <BookOpen className="w-4 h-4 text-amber-300" />,
-    description: 'Instant quick answers and short definitions',
+    description: 'Concepts, definitions, and theory summaries',
+  },
+  {
+    id: '@cf/meta/llama-3.1-8b-instruct',
+    name: 'Llama 3.1 Fast',
+    badge: 'Lightning Fast',
+    category: 'general',
+    size: '8B',
+    icon: <Flame className="w-4 h-4 text-rose-400" />,
+    description: 'Ultra-fast low-latency answers and key formula flashcards',
   },
 ];
 
