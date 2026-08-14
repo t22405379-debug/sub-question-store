@@ -520,32 +520,62 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             </div>
           )}
 
-          {answer && !loading && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-indigo-500/30 space-y-3 animate-fade-in shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold text-indigo-300">Solution Breakdown</span>
-                  {modelUsedName && (
-                    <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-cyan-300">
-                      ⚡ {modelUsedName}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 transition-colors"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
+          {answer && !loading && (() => {
+            let thinkContent: string | null = null;
+            let mainContent = answer;
 
-              <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans space-y-2 max-h-80 overflow-y-auto pr-1">
-                {answer}
+            if (answer.includes('<think>') && answer.includes('</think>')) {
+              const parts = answer.split('</think>');
+              thinkContent = parts[0].replace('<think>', '').trim();
+              mainContent = parts.slice(1).join('</think>').trim();
+            } else if (answer.startsWith('<think>')) {
+              thinkContent = answer.replace('<think>', '').trim();
+            }
+
+            return (
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-indigo-500/30 space-y-3 animate-fade-in shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold text-indigo-300">Solution Breakdown</span>
+                    {modelUsedName && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-cyan-300">
+                        ⚡ {modelUsedName}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 transition-colors"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+
+                {/* Optional DeepSeek R1 Thought Process */}
+                {thinkContent && (
+                  <details className="bg-slate-900/60 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-200 group">
+                    <summary className="cursor-pointer font-bold text-purple-300 flex items-center gap-1.5 select-none">
+                      <Brain className="w-3.5 h-3.5 text-purple-400" />
+                      <span>DeepSeek Chain-of-Thought Reasoning</span>
+                      <span className="text-[10px] text-purple-400/70 font-normal ml-auto group-open:hidden">
+                        (Click to expand)
+                      </span>
+                    </summary>
+                    <div className="mt-2.5 pt-2 border-t border-purple-500/20 text-slate-300 leading-relaxed whitespace-pre-wrap font-mono text-[11px]">
+                      {thinkContent}
+                    </div>
+                  </details>
+                )}
+
+                {/* Main Solution Output */}
+                <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {mainContent || answer}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Footer */}

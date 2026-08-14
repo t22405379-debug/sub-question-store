@@ -323,14 +323,16 @@ export default {
                 });
               } else {
                 aiResult = await env.AI.run(modelName as any, {
+                  max_tokens: 2048,
                   messages: [
                     {
                       role: 'system',
                       content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
-Provide rigorous, structured, step-by-step academic solutions, mathematical formulas, and problem-solving hints tailored for undergraduate university students.
+Provide complete, structured, highly detailed, step-by-step academic solutions, formulas, and runnable code for undergraduate university students.
+Always provide full, complete code snippets without cutting them off.
 Format with clean markdown:
-- **Concept / Theorem / Formula Involved**
-- **Step-by-Step Mathematical/Algorithmic Derivation**
+- **Concept / Theorem / Algorithm Involved**
+- **Complete Step-by-Step Mathematical/Algorithmic Derivation or Code**
 - **Final Answer / Exam Tip to avoid common student mistakes**`,
                     },
                     {
