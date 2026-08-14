@@ -55,6 +55,7 @@ export interface ExecutionContext {
 export interface Env {
   DB: D1Database;
   PAPERS_BUCKET: R2Bucket;
+  AI?: any;
   ENVIRONMENT?: string;
   MAX_UPLOAD_SIZE_BYTES?: string;
 }

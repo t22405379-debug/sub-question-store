@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Layers,
   FileDown,
+  Sparkles,
+  Bot,
 } from 'lucide-react';
 import { usePapers } from '../../context/PaperContext';
 import { studyTrackerService } from '../../services/studyTracker';
@@ -26,6 +28,7 @@ import { Button } from '../ui/Button';
 import { formatBytes } from '../../services/imageOptimizer';
 import { QRCodeModal } from '../ui/QRCodeModal';
 import { DownloadProgressModal } from '../ui/DownloadProgressModal';
+import { AITutorModal } from './AITutorModal';
 import { showToast } from '../ui/Toast';
 
 export const PaperViewerModal: React.FC = () => {
@@ -51,6 +54,7 @@ export const PaperViewerModal: React.FC = () => {
   const [showNotesDrawer, setShowNotesDrawer] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -516,6 +520,18 @@ export const PaperViewerModal: React.FC = () => {
                 <Printer className="w-4 h-4" />
               </Button>
 
+              {/* AI Problem Solver & Tutor */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAIModal(true)}
+                className="text-xs px-2.5 py-1.5 text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 font-bold hidden sm:inline-flex shadow-sm"
+                title="Ask Cloudflare AI for step-by-step solution"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1 text-amber-400" />
+                <span>AI Tutor</span>
+              </Button>
+
               {/* Practiced Toggle */}
               <Button
                 variant={isPracticed ? 'primary' : 'outline'}
@@ -761,6 +777,16 @@ export const PaperViewerModal: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setShowAIModal(true)}
+                      className="w-full text-xs text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 font-bold"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                      Ask AI Problem Solver
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleExportPdf}
                       isLoading={isExportingPdf}
                       className="w-full text-xs text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/10"
@@ -795,6 +821,13 @@ export const PaperViewerModal: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Real Cloudflare AI Tutor Dialog */}
+      <AITutorModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        paper={paper}
+      />
 
       {/* QR Code Sharing Dialog */}
       <QRCodeModal
