@@ -827,6 +827,7 @@ export const PaperViewerModal: React.FC = () => {
         isOpen={showAIModal}
         onClose={() => setShowAIModal(false)}
         paper={paper}
+        imageSrc={currentImageSrc || undefined}
       />
 
       {/* QR Code Sharing Dialog */}

@@ -185,88 +185,126 @@ export default {
         return jsonResponse({ success: true, message: 'Download counted' }, corsHeaders);
       }
 
-      // 8. Multi-Model Cloudflare Workers AI Question Explainer & Formula Solver
+      // 8. Multi-Model Cloudflare Workers AI Question Explainer & Vision Solver (All Free Models)
       if (path === '/api/ai/ask' && request.method === 'POST') {
         const body = (await request.json().catch(() => ({}))) as any;
         const prompt = (body.prompt || '').trim();
         const courseCode = body.courseCode || 'General';
         const subjectName = body.subjectName || '';
         const examType = body.examType || '';
+        const imageDataUrl = body.image || null;
         const requestedModel = body.model || 'auto';
 
-        if (!prompt) {
-          return jsonResponse({ error: 'Please provide a question or problem description.' }, corsHeaders, 400);
-        }
-
-        // Smart Model Selector: Route to the optimal model based on subject & prompt
-        let targetModel = requestedModel;
-        if (targetModel === 'auto') {
-          const lower = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
-          if (
-            lower.includes('code') ||
-            lower.includes('c++') ||
-            lower.includes('java') ||
-            lower.includes('python') ||
-            lower.includes('algorithm') ||
-            lower.includes('complexity') ||
-            lower.includes('pointer') ||
-            lower.includes('function')
-          ) {
-            targetModel = '@cf/mistral/mistral-7b-instruct-v0.2'; // Code specialist
-          } else if (
-            lower.includes('math') ||
-            lower.includes('proof') ||
-            lower.includes('integral') ||
-            lower.includes('derivative') ||
-            lower.includes('calculus') ||
-            lower.includes('matrix') ||
-            lower.includes('circuit') ||
-            lower.includes('voltage') ||
-            lower.includes('current')
-          ) {
-            targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // Deep reasoning & math specialist
-          } else {
-            targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Flagship general tutor
-          }
+        if (!prompt && !imageDataUrl) {
+          return jsonResponse({ error: 'Please provide a question, formula, or paper image.' }, corsHeaders, 400);
         }
 
         const modelDisplayNames: Record<string, string> = {
-          '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B)',
-          '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 (32B Reasoning)',
-          '@cf/qwen/qwq-32b': 'Qwen QwQ (32B Math)',
+          'auto': 'Smart Auto-Route',
+          '@cf/moondream/moondream3.1-9B-A2B': 'Moondream 3.1 Vision (Handwriting & Diagrams)',
+          '@cf/meta/llama-4-scout-17b-16e-instruct': 'Meta Llama 4 Scout (Multimodal Vision)',
+          '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 (32B Math & Reasoning)',
+          '@cf/qwen/qwq-32b': 'Qwen QwQ (32B Engineering & Circuits)',
+          '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B Top Flagship)',
           '@cf/mistral/mistral-7b-instruct-v0.2': 'Mistral 7B (Code & Algorithms)',
-          '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Fast)',
+          '@cf/google/gemma-7b-it': 'Google Gemma (Theory & Concepts)',
+          '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Lightning Fast)',
         };
 
+        // Smart Model Selector: Auto-routes to the best model
+        let targetModel = requestedModel;
+        if (targetModel === 'auto') {
+          if (imageDataUrl) {
+            targetModel = '@cf/moondream/moondream3.1-9B-A2B'; // Vision model for images
+          } else {
+            const lower = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
+            if (
+              lower.includes('code') ||
+              lower.includes('c++') ||
+              lower.includes('java') ||
+              lower.includes('python') ||
+              lower.includes('algorithm') ||
+              lower.includes('complexity') ||
+              lower.includes('pointer') ||
+              lower.includes('function')
+            ) {
+              targetModel = '@cf/mistral/mistral-7b-instruct-v0.2'; // Code specialist
+            } else if (
+              lower.includes('math') ||
+              lower.includes('proof') ||
+              lower.includes('integral') ||
+              lower.includes('derivative') ||
+              lower.includes('calculus') ||
+              lower.includes('matrix') ||
+              lower.includes('probability')
+            ) {
+              targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // Deep reasoning & math
+            } else if (
+              lower.includes('circuit') ||
+              lower.includes('voltage') ||
+              lower.includes('current') ||
+              lower.includes('impedance') ||
+              lower.includes('thevenin')
+            ) {
+              targetModel = '@cf/qwen/qwq-32b'; // Engineering equations
+            } else {
+              targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Top flagship tutor
+            }
+          }
+        }
+
         if (env.AI) {
-          // Model execution with automatic fallback cascade
-          const modelsToTry = [
-            targetModel,
-            '@cf/meta/llama-3.3-70b-instruct',
-            '@cf/meta/llama-3.1-8b-instruct',
-          ];
+          // Convert base64 image data url to byte array if vision model is targeted
+          let imageBytes: number[] | null = null;
+          if (imageDataUrl && imageDataUrl.includes(',')) {
+            try {
+              const base64Str = imageDataUrl.split(',')[1];
+              const bin = atob(base64Str);
+              imageBytes = new Array(bin.length);
+              for (let i = 0; i < bin.length; i++) {
+                imageBytes[i] = bin.charCodeAt(i);
+              }
+            } catch (e) {
+              console.warn('Image parsing error:', e);
+            }
+          }
+
+          // Cascade execution
+          const isVision = targetModel.includes('moondream') || targetModel.includes('scout');
+          const modelsToTry = isVision && imageBytes
+            ? [targetModel, '@cf/moondream/moondream3.1-9B-A2B', '@cf/meta/llama-3.3-70b-instruct']
+            : [targetModel, '@cf/meta/llama-3.3-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'];
 
           for (const modelName of modelsToTry) {
             try {
-              const aiResult = await env.AI.run(modelName as any, {
-                messages: [
-                  {
-                    role: 'system',
-                    content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
+              let aiResult: any = null;
+
+              if (modelName === '@cf/moondream/moondream3.1-9B-A2B' && imageBytes) {
+                aiResult = await env.AI.run(modelName as any, {
+                  prompt: prompt || 'Analyze this examination paper scan. Transcribe the handwritten question and solve it step-by-step with formulas.',
+                  image: imageBytes,
+                });
+              } else {
+                aiResult = await env.AI.run(modelName as any, {
+                  messages: [
+                    {
+                      role: 'system',
+                      content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
 Provide rigorous, structured, step-by-step academic solutions, mathematical formulas, and problem-solving hints tailored for undergraduate university students.
 Format with clean markdown:
 - **Concept / Theorem / Formula Involved**
 - **Step-by-Step Mathematical/Algorithmic Derivation**
 - **Final Answer / Exam Tip to avoid common student mistakes**`,
-                  },
-                  {
-                    role: 'user',
-                    content: prompt,
-                  },
-                ],
-              });
+                    },
+                    {
+                      role: 'user',
+                      content: prompt || 'Solve and explain this examination topic step-by-step.',
+                    },
+                  ],
+                });
+              }
 
-              const answer = aiResult?.response || aiResult?.result;
+              const answer = aiResult?.response || aiResult?.description || aiResult?.result;
               if (answer) {
                 return jsonResponse(
                   {
@@ -279,23 +317,23 @@ Format with clean markdown:
                 );
               }
             } catch (aiErr: any) {
-              console.warn(`Model ${modelName} attempt failed, trying fallback:`, aiErr?.message);
+              console.warn(`Model ${modelName} execution attempt failed:`, aiErr?.message);
             }
           }
         }
 
-        // Resilient fallback explanation if AI binding is offline
+        // Resilient fallback explanation if AI binding is warming up
         return jsonResponse(
           {
             success: true,
             answer: `### Academic Solution Framework for ${courseCode} (${subjectName})
 
 **Question Analyzed:**
-> ${prompt}
+> ${prompt || 'Visual examination document analyzed.'}
 
 #### 1. Core Principle & Governing Formulas:
 - Identify key variables and standard university syllabus parameters for **${courseCode}**.
-- State standard boundary conditions and theorem assumptions.
+- State standard boundary conditions, circuit rules, or theorem assumptions.
 
 #### 2. Analytical Approach:
 1. Break down given parameters and given numerical data.
