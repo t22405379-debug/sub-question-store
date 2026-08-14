@@ -15,6 +15,8 @@ import {
   Camera,
   Layers,
   BookOpen,
+  Terminal,
+  Code2,
 } from 'lucide-react';
 import { QuestionPaper } from '../../types';
 import { Button } from '../ui/Button';
@@ -45,6 +47,7 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
     description: 'Auto-detects whether you need Vision, Math, Code, or Theory',
   },
+  // Vision Models
   {
     id: '@cf/moondream/moondream3.1-9B-A2B',
     name: 'Moondream 3.1 Vision',
@@ -54,13 +57,22 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     description: 'Reads handwritten exams, circuit diagrams, and graphs directly from scans',
   },
   {
-    id: '@cf/meta/llama-4-scout-17b-16e-instruct',
-    name: 'Llama 4 Scout Vision',
-    badge: 'Multimodal',
+    id: '@cf/meta/llama-3.2-11b-vision-instruct',
+    name: 'Llama 3.2 Vision (11B)',
+    badge: 'Visual Reasoning',
     category: 'vision',
     icon: <Camera className="w-3.5 h-3.5 text-cyan-400" />,
-    description: 'Meta 17B multimodal model for combined visual + text analysis',
+    description: 'Meta 11B Vision model for fine visual recognition & problem solving',
   },
+  {
+    id: '@cf/meta/llama-4-scout-17b-16e-instruct',
+    name: 'Llama 4 Scout (17B MoE)',
+    badge: 'Multimodal MoE',
+    category: 'vision',
+    icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />,
+    description: '17B parameter mixture-of-experts multimodal architecture',
+  },
+  // Math & Deep Reasoning Models
   {
     id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
     name: 'DeepSeek R1 (32B)',
@@ -78,6 +90,40 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     description: 'Specialized in circuit analysis, thermodynamics, and analytical equations',
   },
   {
+    id: '@cf/openai/gpt-oss-120b',
+    name: 'OpenAI GPT-OSS (120B)',
+    badge: '120B MoE Giant',
+    category: 'math',
+    icon: <Sparkles className="w-3.5 h-3.5 text-rose-400" />,
+    description: 'Massive 120B open-weight reasoning and logic model',
+  },
+  // Code Masters
+  {
+    id: '@cf/qwen/qwen2.5-coder-32b-instruct',
+    name: 'Qwen 2.5 Coder (32B)',
+    badge: '#1 Code Master',
+    category: 'code',
+    icon: <Code2 className="w-3.5 h-3.5 text-teal-400" />,
+    description: 'Top-tier code generation for C, C++, Java, Python, and DSA algorithms',
+  },
+  {
+    id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
+    name: 'Mistral Small 3.1 (24B)',
+    badge: 'Algorithms',
+    category: 'code',
+    icon: <Terminal className="w-3.5 h-3.5 text-emerald-400" />,
+    description: 'State-of-the-art coding and logic reasoning by Mistral AI',
+  },
+  {
+    id: '@cf/mistral/mistral-7b-instruct-v0.2',
+    name: 'Mistral 7B Code',
+    badge: 'Fast Code',
+    category: 'code',
+    icon: <Binary className="w-3.5 h-3.5 text-cyan-400" />,
+    description: 'Lightweight and fast code solver for programming exams',
+  },
+  // Flagship University Tutors
+  {
     id: '@cf/meta/llama-3.3-70b-instruct',
     name: 'Meta Llama 3.3 (70B)',
     badge: 'Flagship Tutor',
@@ -86,20 +132,12 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     description: 'Flagship 70B parameter general university professor across all topics',
   },
   {
-    id: '@cf/mistral/mistral-7b-instruct-v0.2',
-    name: 'Mistral 7B Code',
-    badge: 'Coding Specialist',
-    category: 'code',
-    icon: <Binary className="w-3.5 h-3.5 text-teal-400" />,
-    description: 'Specialized for C, C++, Java, Python, SQL, and Data Structures',
-  },
-  {
-    id: '@cf/google/gemma-7b-it',
-    name: 'Google Gemma 7B',
-    badge: 'Theory & Concepts',
+    id: '@cf/google/gemma-4-26b-a4b-it',
+    name: 'Google Gemma 4 (26B)',
+    badge: 'Gemini-Core',
     category: 'general',
     icon: <BookOpen className="w-3.5 h-3.5 text-amber-300" />,
-    description: 'Concise theoretical definitions and syllabus summaries',
+    description: 'Google intelligence built from Gemini 3 core architectures',
   },
   {
     id: '@cf/meta/llama-3.1-8b-instruct',
@@ -209,11 +247,11 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                  AI Academic Tutor &amp; Vision Suite
+                  Cloudflare Workers AI Catalog Suite
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  All 9 Models 100% Free
+                  All 13 Models 100% Free
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate">
@@ -229,7 +267,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           </button>
         </div>
 
-        {/* Model Switcher Tab Bar (All 9 Free Models) */}
+        {/* Model Switcher Tab Bar (All 13 Catalog Free Models) */}
         <div className="px-4 py-2 bg-slate-950/95 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
             Engine:
@@ -267,7 +305,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                     Question Paper Scan Attached
                   </span>
                   <span className="text-[10px] text-slate-400 block truncate">
-                    Vision AI models (Moondream &amp; Llama 4) will analyze handwriting and diagrams directly.
+                    Vision AI models (Moondream, Llama 3.2 Vision, Llama 4 Scout) read handwriting and diagrams directly.
                   </span>
                 </div>
               </div>
@@ -315,7 +353,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 rows={3}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. Solve Question 2(b) finding Thevenin voltage, or explain the Dijkstra algorithm question step-by-step..."
+                placeholder="e.g. Solve Question 2(b) finding Thevenin voltage, or write the Dijkstra algorithm code in C++..."
                 className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl p-3.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none leading-relaxed"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -345,7 +383,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 <Sparkles className="w-5 h-5 animate-spin" />
               </div>
               <p className="text-xs text-indigo-300 font-semibold">
-                Running {ALL_FREE_MODELS.find((m) => m.id === selectedModel)?.name || 'AI Engine'} to analyze syllabus, formulas, and diagram scans...
+                Running {ALL_FREE_MODELS.find((m) => m.id === selectedModel)?.name || 'AI Engine'} on Cloudflare GPU network...
               </p>
             </div>
           )}
@@ -383,7 +421,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           <span className="flex items-center gap-1.5 truncate">
             <Cpu className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             <span className="truncate">
-              Moondream Vision • DeepSeek R1 • Meta Llama 3.3 (70B) • Mistral Code • Google Gemma
+              OpenAI GPT-OSS (120B) • DeepSeek R1 • Qwen 2.5 Coder • Moondream Vision • Google Gemma 4
             </span>
           </span>
           <button onClick={onClose} className="hover:text-white font-semibold shrink-0 ml-2">

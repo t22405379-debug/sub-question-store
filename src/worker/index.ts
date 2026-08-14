@@ -185,7 +185,7 @@ export default {
         return jsonResponse({ success: true, message: 'Download counted' }, corsHeaders);
       }
 
-      // 8. Multi-Model Cloudflare Workers AI Question Explainer & Vision Solver (All Free Models)
+      // 8. Full Cloudflare Workers AI Powerhouse (All Catalog Models)
       if (path === '/api/ai/ask' && request.method === 'POST') {
         const body = (await request.json().catch(() => ({}))) as any;
         const prompt = (body.prompt || '').trim();
@@ -200,22 +200,36 @@ export default {
         }
 
         const modelDisplayNames: Record<string, string> = {
-          'auto': 'Smart Auto-Route',
-          '@cf/moondream/moondream3.1-9B-A2B': 'Moondream 3.1 Vision (Handwriting & Diagrams)',
-          '@cf/meta/llama-4-scout-17b-16e-instruct': 'Meta Llama 4 Scout (Multimodal Vision)',
-          '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 (32B Math & Reasoning)',
-          '@cf/qwen/qwq-32b': 'Qwen QwQ (32B Engineering & Circuits)',
-          '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B Top Flagship)',
-          '@cf/mistral/mistral-7b-instruct-v0.2': 'Mistral 7B (Code & Algorithms)',
-          '@cf/google/gemma-7b-it': 'Google Gemma (Theory & Concepts)',
+          'auto': 'Smart Auto-Route Engine',
+          // Vision Models
+          '@cf/moondream/moondream3.1-9B-A2B': 'Moondream 3.1 Vision (OCR & Handwriting)',
+          '@cf/meta/llama-3.2-11b-vision-instruct': 'Meta Llama 3.2 Vision (11B)',
+          '@cf/meta/llama-4-scout-17b-16e-instruct': 'Meta Llama 4 Scout (17B MoE Vision)',
+          '@cf/llava-hf/llava-1.5-7b-hf': 'LLaVA 1.5 Vision (7B)',
+          // Math & Deep Reasoning Models
+          '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 (32B Reasoning)',
+          '@cf/qwen/qwq-32b': 'Qwen QwQ (32B Math & Circuits)',
+          '@cf/openai/gpt-oss-120b': 'OpenAI GPT-OSS (120B MoE)',
+          '@cf/nvidia/nemotron-3-120b-a12b': 'NVIDIA Nemotron 3 (120B)',
+          // Code & Algorithm Models
+          '@cf/qwen/qwen2.5-coder-32b-instruct': 'Qwen 2.5 Coder (32B Code Master)',
+          '@cf/mistralai/mistral-small-3.1-24b-instruct': 'Mistral Small 3.1 (24B Code)',
+          '@cf/mistral/mistral-7b-instruct-v0.2': 'Mistral 7B (Algorithms & Logic)',
+          '@cf/moonshotai/kimi-k2.7-code': 'Kimi K2.7 Code (1T MoE)',
+          // Flagship Academic Tutors
+          '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B Flagship)',
+          '@cf/meta/llama-3.3-70b-instruct-fp8-fast': 'Meta Llama 3.3 (70B Fast)',
+          '@cf/google/gemma-4-26b-a4b-it': 'Google Gemma 4 (26B Gemini-Core)',
+          '@cf/qwen/qwen3-30b-a3b-fp8': 'Qwen 3 (30B MoE)',
+          '@cf/google/gemma-7b-it': 'Google Gemma (7B Concepts)',
           '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Lightning Fast)',
         };
 
-        // Smart Model Selector: Auto-routes to the best model
+        // Smart Model Selector: Route to the optimal model based on query context
         let targetModel = requestedModel;
         if (targetModel === 'auto') {
           if (imageDataUrl) {
-            targetModel = '@cf/moondream/moondream3.1-9B-A2B'; // Vision model for images
+            targetModel = '@cf/moondream/moondream3.1-9B-A2B'; // Vision model
           } else {
             const lower = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
             if (
@@ -226,9 +240,10 @@ export default {
               lower.includes('algorithm') ||
               lower.includes('complexity') ||
               lower.includes('pointer') ||
-              lower.includes('function')
+              lower.includes('function') ||
+              lower.includes('sql')
             ) {
-              targetModel = '@cf/mistral/mistral-7b-instruct-v0.2'; // Code specialist
+              targetModel = '@cf/qwen/qwen2.5-coder-32b-instruct'; // Top coding model
             } else if (
               lower.includes('math') ||
               lower.includes('proof') ||
@@ -238,15 +253,18 @@ export default {
               lower.includes('matrix') ||
               lower.includes('probability')
             ) {
-              targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // Deep reasoning & math
+              targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // DeepSeek math reasoning
             } else if (
               lower.includes('circuit') ||
               lower.includes('voltage') ||
               lower.includes('current') ||
               lower.includes('impedance') ||
-              lower.includes('thevenin')
+              lower.includes('thevenin') ||
+              lower.includes('physics')
             ) {
               targetModel = '@cf/qwen/qwq-32b'; // Engineering equations
+            } else if (lower.includes('concept') || lower.includes('definition') || lower.includes('theory')) {
+              targetModel = '@cf/google/gemma-4-26b-a4b-it'; // Google theory model
             } else {
               targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Top flagship tutor
             }
@@ -254,7 +272,7 @@ export default {
         }
 
         if (env.AI) {
-          // Convert base64 image data url to byte array if vision model is targeted
+          // Parse image bytes if provided
           let imageBytes: number[] | null = null;
           if (imageDataUrl && imageDataUrl.includes(',')) {
             try {
@@ -265,23 +283,42 @@ export default {
                 imageBytes[i] = bin.charCodeAt(i);
               }
             } catch (e) {
-              console.warn('Image parsing error:', e);
+              console.warn('Image byte parsing error:', e);
             }
           }
 
-          // Cascade execution
-          const isVision = targetModel.includes('moondream') || targetModel.includes('scout');
+          const isVision =
+            targetModel.includes('moondream') ||
+            targetModel.includes('vision') ||
+            targetModel.includes('scout') ||
+            targetModel.includes('llava');
+
           const modelsToTry = isVision && imageBytes
-            ? [targetModel, '@cf/moondream/moondream3.1-9B-A2B', '@cf/meta/llama-3.3-70b-instruct']
-            : [targetModel, '@cf/meta/llama-3.3-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'];
+            ? [
+                targetModel,
+                '@cf/moondream/moondream3.1-9B-A2B',
+                '@cf/meta/llama-3.2-11b-vision-instruct',
+                '@cf/meta/llama-3.3-70b-instruct',
+              ]
+            : [
+                targetModel,
+                '@cf/meta/llama-3.3-70b-instruct',
+                '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+                '@cf/meta/llama-3.1-8b-instruct',
+              ];
 
           for (const modelName of modelsToTry) {
             try {
               let aiResult: any = null;
 
-              if (modelName === '@cf/moondream/moondream3.1-9B-A2B' && imageBytes) {
+              if (modelName.includes('moondream') && imageBytes) {
                 aiResult = await env.AI.run(modelName as any, {
-                  prompt: prompt || 'Analyze this examination paper scan. Transcribe the handwritten question and solve it step-by-step with formulas.',
+                  prompt: prompt || 'Analyze this university exam paper scan. Transcribe the handwritten question and solve it step-by-step with formulas.',
+                  image: imageBytes,
+                });
+              } else if (modelName.includes('vision') && imageBytes) {
+                aiResult = await env.AI.run(modelName as any, {
+                  prompt: prompt || 'Solve the question in this exam scan with full mathematical derivation.',
                   image: imageBytes,
                 });
               } else {
@@ -298,7 +335,7 @@ Format with clean markdown:
                     },
                     {
                       role: 'user',
-                      content: prompt || 'Solve and explain this examination topic step-by-step.',
+                      content: prompt || 'Explain and solve this examination topic step-by-step.',
                     },
                   ],
                 });
