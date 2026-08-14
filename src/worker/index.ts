@@ -185,46 +185,106 @@ export default {
         return jsonResponse({ success: true, message: 'Download counted' }, corsHeaders);
       }
 
-      // 8. Real Cloudflare Workers AI Question Explainer & Formula Solver
+      // 8. Multi-Model Cloudflare Workers AI Question Explainer & Formula Solver
       if (path === '/api/ai/ask' && request.method === 'POST') {
         const body = (await request.json().catch(() => ({}))) as any;
         const prompt = (body.prompt || '').trim();
         const courseCode = body.courseCode || 'General';
         const subjectName = body.subjectName || '';
         const examType = body.examType || '';
+        const requestedModel = body.model || 'auto';
 
         if (!prompt) {
           return jsonResponse({ error: 'Please provide a question or problem description.' }, corsHeaders, 400);
         }
 
+        // Smart Model Selector: Route to the optimal model based on subject & prompt
+        let targetModel = requestedModel;
+        if (targetModel === 'auto') {
+          const lower = (prompt + ' ' + courseCode + ' ' + subjectName).toLowerCase();
+          if (
+            lower.includes('code') ||
+            lower.includes('c++') ||
+            lower.includes('java') ||
+            lower.includes('python') ||
+            lower.includes('algorithm') ||
+            lower.includes('complexity') ||
+            lower.includes('pointer') ||
+            lower.includes('function')
+          ) {
+            targetModel = '@cf/mistral/mistral-7b-instruct-v0.2'; // Code specialist
+          } else if (
+            lower.includes('math') ||
+            lower.includes('proof') ||
+            lower.includes('integral') ||
+            lower.includes('derivative') ||
+            lower.includes('calculus') ||
+            lower.includes('matrix') ||
+            lower.includes('circuit') ||
+            lower.includes('voltage') ||
+            lower.includes('current')
+          ) {
+            targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // Deep reasoning & math specialist
+          } else {
+            targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Flagship general tutor
+          }
+        }
+
+        const modelDisplayNames: Record<string, string> = {
+          '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B)',
+          '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 (32B Reasoning)',
+          '@cf/qwen/qwq-32b': 'Qwen QwQ (32B Math)',
+          '@cf/mistral/mistral-7b-instruct-v0.2': 'Mistral 7B (Code & Algorithms)',
+          '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Fast)',
+        };
+
         if (env.AI) {
-          try {
-            const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct', {
-              messages: [
-                {
-                  role: 'system',
-                  content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
-Provide rigorous, structured, step-by-step academic solutions, mathematical formulas, and problem-solving hints tailored for university students.
+          // Model execution with automatic fallback cascade
+          const modelsToTry = [
+            targetModel,
+            '@cf/meta/llama-3.3-70b-instruct',
+            '@cf/meta/llama-3.1-8b-instruct',
+          ];
+
+          for (const modelName of modelsToTry) {
+            try {
+              const aiResult = await env.AI.run(modelName as any, {
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
+Provide rigorous, structured, step-by-step academic solutions, mathematical formulas, and problem-solving hints tailored for undergraduate university students.
 Format with clean markdown:
 - **Concept / Theorem / Formula Involved**
 - **Step-by-Step Mathematical/Algorithmic Derivation**
 - **Final Answer / Exam Tip to avoid common student mistakes**`,
-                },
-                {
-                  role: 'user',
-                  content: prompt,
-                },
-              ],
-            });
+                  },
+                  {
+                    role: 'user',
+                    content: prompt,
+                  },
+                ],
+              });
 
-            const answer = aiResult?.response || aiResult?.result || 'Solution generated.';
-            return jsonResponse({ success: true, answer, model: '@cf/meta/llama-3.3-70b-instruct' }, corsHeaders);
-          } catch (aiErr: any) {
-            console.error('Workers AI execution error:', aiErr);
+              const answer = aiResult?.response || aiResult?.result;
+              if (answer) {
+                return jsonResponse(
+                  {
+                    success: true,
+                    answer,
+                    model: modelName,
+                    modelDisplayName: modelDisplayNames[modelName] || modelName,
+                  },
+                  corsHeaders
+                );
+              }
+            } catch (aiErr: any) {
+              console.warn(`Model ${modelName} attempt failed, trying fallback:`, aiErr?.message);
+            }
           }
         }
 
-        // Resilient fallback explanation if AI binding is warming up
+        // Resilient fallback explanation if AI binding is offline
         return jsonResponse(
           {
             success: true,
@@ -246,6 +306,7 @@ Format with clean markdown:
 * Show complete intermediate calculation steps to secure full partial marking.
 * Draw clear schematics, diagrams, or trace tables in your answer script.`,
             model: 'academic-tutor-engine',
+            modelDisplayName: 'Academic Study Framework',
           },
           corsHeaders
         );

@@ -6,10 +6,11 @@ import {
   Send,
   Copy,
   Check,
-  BookOpen,
-  HelpCircle,
-  Code,
   Zap,
+  Cpu,
+  Brain,
+  Binary,
+  Flame,
 } from 'lucide-react';
 import { QuestionPaper } from '../../types';
 import { Button } from '../ui/Button';
@@ -21,10 +22,58 @@ interface AITutorModalProps {
   paper: QuestionPaper | null;
 }
 
+interface AIModelOption {
+  id: string;
+  name: string;
+  badge: string;
+  icon: React.ReactNode;
+  description: string;
+}
+
+const AVAILABLE_MODELS: AIModelOption[] = [
+  {
+    id: 'auto',
+    name: 'Smart Auto-Route',
+    badge: 'Recommended',
+    icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
+    description: 'Auto-detects Math vs Code vs Theory',
+  },
+  {
+    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+    name: 'DeepSeek R1 (32B)',
+    badge: 'Math & Proofs',
+    icon: <Brain className="w-3.5 h-3.5 text-cyan-400" />,
+    description: 'Deep chain-of-thought mathematical reasoning',
+  },
+  {
+    id: '@cf/meta/llama-3.3-70b-instruct',
+    name: 'Meta Llama 3.3 (70B)',
+    badge: 'Top Flagship',
+    icon: <Cpu className="w-3.5 h-3.5 text-indigo-400" />,
+    description: 'Comprehensive university tutor across all subjects',
+  },
+  {
+    id: '@cf/mistral/mistral-7b-instruct-v0.2',
+    name: 'Mistral 7B Code',
+    badge: 'Coding Specialist',
+    icon: <Binary className="w-3.5 h-3.5 text-emerald-400" />,
+    description: 'Specialized for C, C++, Java, Python, and DSA',
+  },
+  {
+    id: '@cf/meta/llama-3.1-8b-instruct',
+    name: 'Llama 3.1 (8B Fast)',
+    badge: 'Ultra Fast',
+    icon: <Flame className="w-3.5 h-3.5 text-rose-400" />,
+    description: 'Instant answers with ultra-low latency',
+  },
+];
+
 export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, paper }) => {
+  const [selectedModel, setSelectedModel] = useState('auto');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
+  const [modelUsedName, setModelUsedName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen || !paper) return null;
@@ -35,6 +84,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
 
     setLoading(true);
     setAnswer(null);
+    setModelUsedName(null);
 
     try {
       const res = await fetch('/api/ai/ask', {
@@ -46,12 +96,14 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
           subjectName: paper.subject_name,
           examType: paper.exam_type_name,
           sessionYear: paper.session_year,
+          model: selectedModel,
         }),
       });
 
       const data = await res.json();
       if (data.answer) {
         setAnswer(data.answer);
+        setModelUsedName(data.modelDisplayName || data.model || 'Cloudflare Workers AI');
       } else {
         setAnswer('Unable to generate an explanation at this moment. Please try again.');
       }
@@ -83,7 +135,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
       <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md animate-fade-in" onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+      <div className="relative z-10 w-full max-w-3xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-3 min-w-0">
@@ -94,10 +146,10 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-bold text-white truncate">AI Academic Tutor</h3>
+                <h3 className="text-sm sm:text-base font-bold text-white truncate">AI Academic Tutor Suite</h3>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  Cloudflare AI
+                  Free Cloudflare AI
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate">
@@ -111,6 +163,28 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Model Switcher Tab Bar */}
+        <div className="px-5 py-2.5 bg-slate-950/95 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+            Engine:
+          </span>
+          {AVAILABLE_MODELS.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setSelectedModel(m.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-all ${
+                selectedModel === m.id
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold scale-105'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+              }`}
+              title={m.description}
+            >
+              {m.icon}
+              <span>{m.name}</span>
+            </button>
+          ))}
         </div>
 
         {/* Body Content */}
@@ -147,7 +221,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
                 rows={3}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. How to find the output voltage in Question 2(b)? Or write the C program for the loop problem..."
+                placeholder="e.g. Solve Question 2(b) finding output voltage or explain the Dijkstra algorithm question..."
                 className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl p-3.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none leading-relaxed"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -165,7 +239,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
                 className="absolute right-2.5 bottom-3.5 text-xs px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
               >
                 <Send className="w-3.5 h-3.5 mr-1" />
-                Ask AI
+                Ask Engine
               </Button>
             </div>
           </div>
@@ -177,7 +251,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
                 <Sparkles className="w-5 h-5 animate-spin" />
               </div>
               <p className="text-xs text-indigo-300 font-semibold">
-                Analyzing university question syllabus and generating step-by-step solution...
+                Running selected Cloudflare AI model to construct full step-by-step solution...
               </p>
             </div>
           )}
@@ -185,9 +259,14 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
           {answer && !loading && (
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-indigo-500/30 space-y-3 animate-fade-in shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+                <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>AI Academic Solution</span>
+                  <span className="text-xs font-bold text-indigo-300">Solution Breakdown</span>
+                  {modelUsedName && (
+                    <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-cyan-300">
+                      ⚡ {modelUsedName}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={handleCopy}
@@ -198,7 +277,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
                 </button>
               </div>
 
-              <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans space-y-2 max-h-72 overflow-y-auto pr-1">
+              <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans space-y-2 max-h-80 overflow-y-auto pr-1">
                 {answer}
               </div>
             </div>
@@ -207,7 +286,10 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({ isOpen, onClose, pap
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Powered by Cloudflare Workers AI</span>
+          <span className="flex items-center gap-1.5">
+            <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+            <span>DeepSeek R1 • Meta Llama 3.3 (70B) • Mistral Code • QwQ</span>
+          </span>
           <button onClick={onClose} className="hover:text-white font-semibold">
             Close
           </button>
