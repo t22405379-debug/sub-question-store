@@ -217,11 +217,10 @@ export default {
           '@cf/mistral/mistral-7b-instruct-v0.2': 'Mistral 7B (Algorithms & Logic)',
           '@cf/moonshotai/kimi-k2.7-code': 'Kimi K2.7 Code (1T MoE)',
           // Flagship Academic Tutors
+          '@cf/meta/llama-3.3-70b-instruct-fp8-fast': 'Meta Llama 3.3 (70B Flagship)',
           '@cf/meta/llama-3.3-70b-instruct': 'Meta Llama 3.3 (70B Flagship)',
-          '@cf/meta/llama-3.3-70b-instruct-fp8-fast': 'Meta Llama 3.3 (70B Fast)',
-          '@cf/google/gemma-4-26b-a4b-it': 'Google Gemma 4 (26B Gemini-Core)',
-          '@cf/qwen/qwen3-30b-a3b-fp8': 'Qwen 3 (30B MoE)',
           '@cf/google/gemma-7b-it': 'Google Gemma (7B Concepts)',
+          '@cf/google/gemma-4-26b-a4b-it': 'Google Gemma 4 (26B Gemini-Core)',
           '@cf/meta/llama-3.1-8b-instruct': 'Meta Llama 3.1 (8B Lightning Fast)',
         };
 
@@ -281,9 +280,9 @@ export default {
           } else if (isMathQuery) {
             targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // DeepSeek R1 Math Specialist
           } else if (queryText.includes('concept') || queryText.includes('definition') || queryText.includes('theory')) {
-            targetModel = '@cf/google/gemma-4-26b-a4b-it'; // Google Gemma Gemini-Core
+            targetModel = '@cf/google/gemma-7b-it'; // Google Gemma Concepts
           } else {
-            targetModel = '@cf/meta/llama-3.3-70b-instruct'; // Meta 70B Flagship Tutor
+            targetModel = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'; // Meta 70B Flagship Tutor
           }
         }
 
