@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Download,
@@ -52,6 +52,8 @@ export const PaperViewerModal: React.FC = () => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
 
+  const canvasRef = useRef<HTMLDivElement>(null);
+
   // Calculate pages
   const paperPages = React.useMemo(() => {
     if (!paper) return [];
@@ -104,43 +106,241 @@ export const PaperViewerModal: React.FC = () => {
     }
   }, [paper?.id]);
 
-  // Keyboard Shortcuts (Arrow Left/Right, R, D, P, Zoom, Esc)
+  const handleZoomIn = () => setZoom((z) => Math.min(Number((z + 0.25).toFixed(2)), 5.0));
+  const handleZoomOut = () => setZoom((z) => Math.max(Number((z - 0.25).toFixed(2)), 0.4));
+  const handleResetZoom = () => setZoom(1.0);
+  const handleRotate = () => setRotation((r) => (r + 90) % 360);
+
+  // 100% Reliable Print Engine (Zero Pop-Up Blockers)
+  const handlePrintPaper = () => {
+    if (!paper) return;
+
+    // Remove any previously created print frames
+    const oldFrame = document.getElementById('paper-print-frame');
+    if (oldFrame) oldFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'paper-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    const pagesHtml = paperPages
+      .map(
+        (src, idx) => `
+        <div class="print-page">
+          <div class="print-header">
+            <span class="course-title">${paper.course_code}: ${paper.subject_name || 'Question Paper'}</span>
+            <span class="exam-meta">${paper.exam_type_name || 'Exam'} (${paper.session_year}) • Page ${idx + 1} of ${paperPages.length}</span>
+          </div>
+          <div class="img-box">
+            <img src="${src}" alt="Page ${idx + 1}" />
+          </div>
+        </div>
+      `
+      )
+      .join('');
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${paper.course_code} - ${paper.exam_type_name || 'Exam'} (${paper.session_year})</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 8mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: #ffffff;
+              color: #111827;
+            }
+            .print-page {
+              page-break-after: always;
+              height: 100vh;
+              display: flex;
+              flex-direction: column;
+              padding: 4mm;
+            }
+            .print-page:last-child {
+              page-break-after: avoid;
+            }
+            .print-header {
+              border-bottom: 2px solid #1e293b;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 13px;
+              font-weight: 700;
+              color: #0f172a;
+            }
+            .course-title {
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .exam-meta {
+              color: #475569;
+            }
+            .img-box {
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+            }
+            img {
+              max-width: 100%;
+              max-height: 90vh;
+              object-fit: contain;
+            }
+          </style>
+        </head>
+        <body>
+          ${pagesHtml}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Ensure all images are fully loaded before calling window.print
+    const images = doc.querySelectorAll('img');
+    let loaded = 0;
+    const total = images.length;
+
+    const doPrint = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error('Print trigger error:', e);
+        }
+      }, 300);
+    };
+
+    if (total === 0) {
+      doPrint();
+    } else {
+      images.forEach((img) => {
+        if (img.complete) {
+          loaded++;
+          if (loaded === total) doPrint();
+        } else {
+          img.onload = () => {
+            loaded++;
+            if (loaded === total) doPrint();
+          };
+          img.onerror = () => {
+            loaded++;
+            if (loaded === total) doPrint();
+          };
+        }
+      });
+    }
+  };
+
+  // Keyboard Shortcuts (Ctrl+Plus / Ctrl+Minus / Ctrl+0 / +, -, 0, Arrow Left/Right, R, D, P, Esc)
   useEffect(() => {
     if (!paper) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement)?.tagName)) return;
 
-      if (e.key === 'Escape') {
-        closeViewer();
-      } else if (e.key === 'ArrowLeft') {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // Zoom In: '+' or '=' with or without Ctrl
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        handleZoomIn();
+      }
+      // Zoom Out: '-' or '_' with or without Ctrl
+      else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handleZoomOut();
+      }
+      // Reset Zoom: '0' with or without Ctrl
+      else if (e.key === '0') {
+        e.preventDefault();
+        handleResetZoom();
+      }
+      // Print: 'p' or 'P' with or without Ctrl
+      else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        handlePrintPaper();
+      }
+      // Download: 'd' or 'D' with or without Ctrl
+      else if (e.key === 'd' || e.key === 'D') {
+        if (!isCtrlOrCmd) {
+          handleDownload();
+        }
+      }
+      // Rotate: 'r' or 'R'
+      else if ((e.key === 'r' || e.key === 'R') && !isCtrlOrCmd) {
+        e.preventDefault();
+        handleRotate();
+      }
+      // Navigation: Arrow Left / Right
+      else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
         handlePrev();
       } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
         handleNext();
-      } else if (e.key === 'r' || e.key === 'R') {
-        setRotation((r) => (r + 90) % 360);
-      } else if (e.key === '+' || e.key === '=') {
-        setZoom((z) => Math.min(z + 0.25, 4.0));
-      } else if (e.key === '-' || e.key === '_') {
-        setZoom((z) => Math.max(z - 0.25, 0.4));
-      } else if (e.key === 'd' || e.key === 'D') {
-        handleDownload();
-      } else if (e.key === 'p' || e.key === 'P') {
-        handlePrintPaper();
+      }
+      // Close: Escape
+      else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeViewer();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [paper?.id, activePageIndex, totalPages, hasPrevPaper, hasNextPaper]);
+  }, [paper?.id, activePageIndex, totalPages, hasPrevPaper, hasNextPaper, paperPages]);
+
+  // Ctrl + Mouse Wheel (or Pinch-to-zoom) Support on Image Canvas
+  useEffect(() => {
+    const canvasEl = canvasRef.current;
+    if (!canvasEl) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          // Scrolling up -> Zoom in
+          setZoom((z) => Math.min(Number((z + 0.15).toFixed(2)), 5.0));
+        } else {
+          // Scrolling down -> Zoom out
+          setZoom((z) => Math.max(Number((z - 0.15).toFixed(2)), 0.4));
+        }
+      }
+    };
+
+    canvasEl.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvasEl.removeEventListener('wheel', handleWheel);
+  }, []);
 
   if (!paper) return null;
 
   const isBookmarked = bookmarks.includes(paper.id);
-
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 4.0));
-  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.4));
-  const handleRotate = () => setRotation((r) => (r + 90) % 360);
 
   const handleDownload = () => {
     recordDownload(paper.id);
@@ -167,50 +367,6 @@ export const PaperViewerModal: React.FC = () => {
     } finally {
       setIsExportingPdf(false);
     }
-  };
-
-  // 1-Click Multi-Page Clean A4 Print
-  const handlePrintPaper = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const pagesHtml = paperPages
-      .map(
-        (src, idx) => `
-        <div style="page-break-after: always; padding: 10px; text-align: center;">
-          <div class="header">
-            <span>${paper.course_code}: ${paper.subject_name}</span>
-            <span>Page ${idx + 1} of ${paperPages.length} • ${paper.exam_type_name} (${paper.session_year})</span>
-          </div>
-          <img src="${src}" style="max-width: 100%; max-height: 88vh; object-fit: contain;" />
-        </div>
-      `
-      )
-      .join('');
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${paper.course_code} - ${paper.exam_type_name} (${paper.session_year})</title>
-          <style>
-            @page { size: A4 portrait; margin: 8mm; }
-            body { font-family: sans-serif; background: #fff; color: #000; margin: 0; padding: 0; }
-            .header { border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          ${pagesHtml}
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   const handleTogglePracticed = () => {
@@ -280,7 +436,9 @@ export const PaperViewerModal: React.FC = () => {
                   </button>
                   <span className="text-[11px] font-mono font-bold text-indigo-300 px-2 flex items-center gap-1">
                     <Layers className="w-3.5 h-3.5" />
-                    <span>{activePageIndex + 1}/{totalPages}</span>
+                    <span>
+                      {activePageIndex + 1}/{totalPages}
+                    </span>
                   </span>
                   <button
                     disabled={activePageIndex === totalPages - 1}
@@ -320,17 +478,21 @@ export const PaperViewerModal: React.FC = () => {
                 <button
                   onClick={handleZoomOut}
                   className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
-                  title="Zoom Out (-)"
+                  title="Zoom Out (Ctrl + Minus or -)"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-[11px] font-mono text-slate-400 px-1 min-w-[2.5rem] text-center">
+                <button
+                  onClick={handleResetZoom}
+                  className="text-[11px] font-mono text-slate-400 hover:text-indigo-300 px-1.5 py-1 min-w-[2.8rem] text-center rounded transition-colors"
+                  title="Click to reset zoom (Ctrl + 0)"
+                >
                   {Math.round(zoom * 100)}%
-                </span>
+                </button>
                 <button
                   onClick={handleZoomIn}
                   className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
-                  title="Zoom In (+)"
+                  title="Zoom In (Ctrl + Plus or +)"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
@@ -343,13 +505,13 @@ export const PaperViewerModal: React.FC = () => {
                 </button>
               </div>
 
-              {/* 1-Click Print Button */}
+              {/* 1-Click Clean Print Button */}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handlePrintPaper}
                 title="Print All Pages (P / Ctrl+P)"
-                className="text-slate-300"
+                className="text-slate-300 hover:text-indigo-300 hover:border-indigo-500/50"
               >
                 <Printer className="w-4 h-4" />
               </Button>
@@ -417,7 +579,7 @@ export const PaperViewerModal: React.FC = () => {
                 variant="primary"
                 size="sm"
                 onClick={handleDownload}
-                className="text-xs px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 border-indigo-500 text-white"
+                className="text-xs px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 border-indigo-500 text-white font-bold"
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
                 <span className="hidden sm:inline">Download</span>
@@ -438,12 +600,15 @@ export const PaperViewerModal: React.FC = () => {
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
             {/* Document Canvas Viewer */}
-            <div className="flex-1 bg-slate-950/95 relative overflow-auto flex flex-col items-center justify-center p-3 sm:p-6 touch-pan-x touch-pan-y">
+            <div
+              ref={canvasRef}
+              className="flex-1 bg-slate-950/95 relative overflow-auto flex flex-col items-center justify-center p-3 sm:p-6 touch-pan-x touch-pan-y"
+            >
               <div
                 style={{
                   transform: `scale(${zoom}) rotate(${rotation}deg)`,
                   transformOrigin: 'center center',
-                  transition: 'transform 0.2s ease-out',
+                  transition: 'transform 0.15s ease-out',
                 }}
                 className="max-w-full max-h-full flex items-center justify-center shadow-2xl rounded-lg select-none"
               >
@@ -511,7 +676,7 @@ export const PaperViewerModal: React.FC = () => {
                       rows={8}
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
-                      placeholder="Write private notes on key questions, tricks, formulas, or tricky sub-questions to review before the exam..."
+                      placeholder="Write private notes on key questions, formulas, or tricky sub-questions to review before the exam..."
                       className="w-full bg-slate-950/90 text-slate-200 placeholder-slate-500 text-xs rounded-xl border border-slate-700/80 p-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed"
                     />
                     <Button type="submit" variant="primary" size="sm" className="w-full text-xs">
