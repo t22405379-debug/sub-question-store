@@ -272,13 +272,47 @@ export default {
           queryText.includes('matrix') ||
           queryText.includes('probability');
 
+        const isLogicOrAutomata =
+          queryText.includes('automata') ||
+          queryText.includes('compiler') ||
+          queryText.includes('grammar') ||
+          queryText.includes('parsing') ||
+          queryText.includes('turing') ||
+          queryText.includes('finite state') ||
+          queryText.includes('dfa') ||
+          queryText.includes('nfa') ||
+          queryText.includes('lexer') ||
+          queryText.includes('regex');
+
+        const isArchitectureQuery =
+          queryText.includes('architecture') ||
+          queryText.includes('distributed') ||
+          queryText.includes('microservice') ||
+          queryText.includes('cloud') ||
+          queryText.includes('120b') ||
+          queryText.includes('operating system') ||
+          queryText.includes('kernel') ||
+          queryText.includes('database engine');
+
+        const isQuickSummaryQuery =
+          queryText.includes('flashcard') ||
+          queryText.includes('quick summary') ||
+          queryText.includes('fast recap') ||
+          queryText.includes('1-minute');
+
         if (targetModel === 'auto') {
           if (isCircuitQuery) {
             targetModel = '@cf/qwen/qwq-32b'; // Qwen QwQ is the #1 Circuit & Physics Specialist
+          } else if (isLogicOrAutomata) {
+            targetModel = '@cf/mistralai/mistral-small-3.1-24b-instruct'; // Mistral Small is #1 for Automata & Compilers
+          } else if (isArchitectureQuery) {
+            targetModel = '@cf/openai/gpt-oss-120b'; // OpenAI GPT-OSS 120B for Massive Architecture & Systems
           } else if (isCodeQuery) {
             targetModel = '@cf/qwen/qwen2.5-coder-32b-instruct'; // Qwen 2.5 Coder is the #1 Programming Master
           } else if (isMathQuery) {
             targetModel = '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'; // DeepSeek R1 Math Specialist
+          } else if (isQuickSummaryQuery) {
+            targetModel = '@cf/meta/llama-3.1-8b-instruct'; // Llama 3.1 8B for Lightning Fast summaries
           } else if (queryText.includes('concept') || queryText.includes('definition') || queryText.includes('theory')) {
             targetModel = '@cf/google/gemma-7b-it'; // Google Gemma Concepts
           } else {
