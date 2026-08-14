@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { QuestionPaper } from '../../types';
 import { Button } from '../ui/Button';
+import { MarkdownRenderer } from '../ui/MarkdownRenderer';
 import { showToast } from '../ui/Toast';
 
 interface AITutorModalProps {
@@ -593,9 +594,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                   </details>
                 )}
 
-                {/* Main Solution Output */}
-                <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {mainContent || answer}
+                {/* Main Solution Output with Rich Markdown & Code Blocks */}
+                <div className="max-h-96 overflow-y-auto pr-1">
+                  <MarkdownRenderer content={mainContent || answer} />
                 </div>
               </div>
             );
