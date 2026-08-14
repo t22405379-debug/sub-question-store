@@ -20,6 +20,11 @@ import {
   ChevronDown,
   ChevronUp,
   Settings2,
+  BookmarkPlus,
+  BookmarkCheck,
+  Table,
+  Activity,
+  GraduationCap,
 } from 'lucide-react';
 import { QuestionPaper } from '../../types';
 import { Button } from '../ui/Button';
@@ -34,6 +39,7 @@ interface AITutorModalProps {
 }
 
 type ModelCategory = 'all' | 'vision' | 'math' | 'code' | 'general';
+type StudyMode = 'full' | 'trace' | 'complexity' | 'viva';
 
 interface AIModelOption {
   id: string;
@@ -75,35 +81,6 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     description: '17B parameter mixture-of-experts multimodal architecture',
   },
 
-  // Math & Deep Reasoning Models
-  {
-    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-    name: 'DeepSeek R1',
-    badge: 'Math Proofs',
-    category: 'math',
-    size: '32B',
-    icon: <Brain className="w-4 h-4 text-purple-400" />,
-    description: 'Deep step-by-step mathematical reasoning, proofs, and calculus',
-  },
-  {
-    id: '@cf/qwen/qwq-32b',
-    name: 'Qwen QwQ',
-    badge: 'Circuits & Physics',
-    category: 'math',
-    size: '32B',
-    icon: <Layers className="w-4 h-4 text-blue-400" />,
-    description: 'Specialized in circuit analysis, thermodynamics, and analytical equations',
-  },
-  {
-    id: '@cf/openai/gpt-oss-120b',
-    name: 'OpenAI GPT-OSS',
-    badge: 'Massive MoE',
-    category: 'math',
-    size: '120B',
-    icon: <Sparkles className="w-4 h-4 text-rose-400" />,
-    description: 'Massive 120B open-weight reasoning and logic model',
-  },
-
   // Code Masters
   {
     id: '@cf/qwen/qwen2.5-coder-32b-instruct',
@@ -133,24 +110,53 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     description: 'Lightweight and fast code solver for programming exams',
   },
 
+  // Math & Circuits Specialist Models
+  {
+    id: '@cf/qwen/qwq-32b',
+    name: 'Qwen QwQ',
+    badge: 'Circuits & Physics',
+    category: 'math',
+    size: '32B',
+    icon: <Layers className="w-4 h-4 text-blue-400" />,
+    description: 'Specialized in circuit analysis, electronics, thermodynamics, and analytical equations',
+  },
+  {
+    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+    name: 'DeepSeek R1',
+    badge: 'Math Proofs',
+    category: 'math',
+    size: '32B',
+    icon: <Brain className="w-4 h-4 text-purple-400" />,
+    description: 'Deep step-by-step mathematical reasoning, proofs, and calculus',
+  },
+  {
+    id: '@cf/openai/gpt-oss-120b',
+    name: 'OpenAI GPT-OSS',
+    badge: 'Massive MoE',
+    category: 'math',
+    size: '120B',
+    icon: <Sparkles className="w-4 h-4 text-rose-400" />,
+    description: 'Massive 120B open-weight reasoning and logic model',
+  },
+
   // Flagship University Tutors
   {
-    id: '@cf/meta/llama-3.3-70b-instruct',
-    name: 'Meta Llama 3.3',
+    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    name: 'Meta Llama 3.3 Fast',
     badge: 'Flagship Tutor',
     category: 'general',
-    size: '70B',
+    size: '70B FP8',
     icon: <Cpu className="w-4 h-4 text-indigo-400" />,
     description: 'Flagship 70B parameter general university professor across all topics',
   },
   {
-    id: '@cf/google/gemma-4-26b-a4b-it',
-    name: 'Google Gemma 4',
-    badge: 'Gemini-Core',
+    id: '@cf/google/gemma-7b-it',
+    name: 'Google Gemma',
+    badge: 'Theory Concepts',
     category: 'general',
-    size: '26B',
+    size: '7B',
     icon: <BookOpen className="w-4 h-4 text-amber-300" />,
-    description: 'Google intelligence built from Gemini 3 core architecture',
+    description: 'Concepts, definitions, and theory summaries',
   },
   {
     id: '@cf/meta/llama-3.1-8b-instruct',
@@ -176,6 +182,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   });
 
   const [activeCategory, setActiveCategory] = useState<ModelCategory>('all');
+  const [studyMode, setStudyMode] = useState<StudyMode>('full');
   const [showModelDrawer, setShowModelDrawer] = useState(false);
   const [includeImage, setIncludeImage] = useState(true);
   const [prompt, setPrompt] = useState('');
@@ -183,6 +190,24 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   const [answer, setAnswer] = useState<string | null>(null);
   const [modelUsedName, setModelUsedName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Load saved archive notes for this paper
+  useEffect(() => {
+    if (paper) {
+      const storageKey = `cse_notes_${paper.id}`;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setSavedNotes(Array.isArray(parsed) ? parsed : []);
+        }
+      } catch {
+        setSavedNotes([]);
+      }
+    }
+  }, [paper]);
 
   useEffect(() => {
     localStorage.setItem(PREFERRED_MODEL_KEY, selectedModel);
@@ -206,13 +231,16 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       ? ALL_FREE_MODELS
       : ALL_FREE_MODELS.filter((m) => m.category === activeCategory);
 
-  const handleAskAI = async (customQuestion?: string) => {
+  const handleAskAI = async (customQuestion?: string, overrideMode?: StudyMode) => {
     const queryText = (customQuestion || prompt).trim();
     if (!queryText && (!includeImage || !imageSrc)) return;
 
     setLoading(true);
     setAnswer(null);
     setModelUsedName(null);
+    setIsSaved(false);
+
+    const activeMode = overrideMode || studyMode;
 
     // Preload & compress image to Base64 JPEG data URL if needed
     let payloadImage = includeImage && imageSrc ? imageSrc : undefined;
@@ -249,6 +277,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           examType: paper.exam_type_name,
           sessionYear: paper.session_year,
           model: selectedModel,
+          mode: activeMode,
           image: payloadImage,
         }),
       });
@@ -275,22 +304,36 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSaveToArchive = () => {
+    if (!answer || !paper) return;
+    const storageKey = `cse_notes_${paper.id}`;
+    const newNotes = [answer, ...savedNotes.filter((n) => n !== answer)].slice(0, 10);
+    localStorage.setItem(storageKey, JSON.stringify(newNotes));
+    setSavedNotes(newNotes);
+    setIsSaved(true);
+    showToast('Saved to Study Archive', 'This verified solution has been saved for instant zero-quota revision!');
+  };
+
   const quickPrompts = [
     {
-      label: 'Perfect & Fix This Code in C',
-      text: 'Analyze the handwritten C code in this scan. Provide the complete, bug-free, and optimized C program with proper edge case handling (0 and negative numbers), comments, and trace table.',
+      label: '🚀 Complete Solution in C/C++',
+      mode: 'full' as StudyMode,
+      text: 'Analyze the handwritten code in this scan. Provide the complete, bug-free, and optimized C program with proper edge case handling (0 and negative numbers), comments, and trace table.',
     },
     {
-      label: 'Trace Algorithm & Step-by-Step Table',
-      text: 'Trace the algorithm in this paper with step-by-step variable values and dry run table.',
+      label: '📊 Dry Run & Variable Trace Table',
+      mode: 'trace' as StudyMode,
+      text: 'Trace the algorithm in this paper with step-by-step variable values and complete iteration dry run table.',
     },
     {
-      label: 'Read Diagram / Formula & Solve',
-      text: 'Analyze the circuit or mathematical problem in this scan and compute the step-by-step solution.',
+      label: '⚡ Big-O Complexity & Memory',
+      mode: 'complexity' as StudyMode,
+      text: 'Provide in-depth Time and Space Complexity analysis with best, average, worst case and RAM cache efficiency.',
     },
     {
-      label: 'Common Exam Traps & Edge Cases',
-      text: 'What are the common student mistakes in this specific question and how to get full marks?',
+      label: '🎯 Top 5 Exam Viva / Lab Questions',
+      mode: 'viva' as StudyMode,
+      text: 'What are the Top 5 most likely Professor Viva Voce questions on this exact code/circuit topic with model answers?',
     },
   ];
 
@@ -312,12 +355,17 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                  AI Academic Tutor &amp; Problem Solver
+                  AI Academic Tutor &amp; CSE Study Suite
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  13 Free Cloudflare Models
+                  All 13 Models Free
                 </span>
+                {savedNotes.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                    📚 {savedNotes.length} Saved Note{savedNotes.length > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400 truncate">
                 {paper.course_code}: {paper.subject_name} ({paper.exam_type_name} {paper.session_year})
@@ -366,9 +414,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {[
                 { id: 'all', label: 'All Engines (13)' },
-                { id: 'vision', label: '👁️ Vision & Scans (3)' },
-                { id: 'math', label: '🧮 Math & Proofs (3)' },
                 { id: 'code', label: '💻 Coding & DSA (3)' },
+                { id: 'math', label: '⚡ Circuits & Math (3)' },
+                { id: 'vision', label: '👁️ Vision & Scans (3)' },
                 { id: 'general', label: '🎓 University Tutors (3)' },
               ].map((cat) => (
                 <button
@@ -410,7 +458,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
-                    Auto-picks Vision, DeepSeek Math, or Qwen Coder based on prompt.
+                    Auto-routes Circuits to QwQ, Code to Qwen 2.5 Coder, and Math to DeepSeek R1.
                   </p>
                 </button>
               )}
@@ -445,6 +493,37 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* CSE Academic Study Mode Tab Selector */}
+        <div className="px-4 sm:px-5 py-2 bg-slate-950/60 border-b border-slate-800/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+            CSE Mode:
+          </span>
+          {[
+            { id: 'full', label: 'Complete Code / Solution', icon: <Code2 className="w-3.5 h-3.5" /> },
+            { id: 'trace', label: 'Dry Run Trace Table', icon: <Table className="w-3.5 h-3.5" /> },
+            { id: 'complexity', label: 'Big-O Complexity', icon: <Activity className="w-3.5 h-3.5" /> },
+            { id: 'viva', label: 'Viva Voce / Lab Exam', icon: <GraduationCap className="w-3.5 h-3.5" /> },
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => {
+                setStudyMode(mode.id as StudyMode);
+                if (prompt.trim() || imageSrc) {
+                  handleAskAI(undefined, mode.id as StudyMode);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-colors ${
+                studyMode === mode.id
+                  ? 'bg-indigo-600/90 text-white font-bold shadow-md shadow-indigo-600/20'
+                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              {mode.icon}
+              <span>{mode.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
@@ -481,7 +560,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           {/* Quick Smart Starters */}
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-              Quick Problem Solver Prompts:
+              Quick Academic Prompts:
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {quickPrompts.map((q, idx) => (
@@ -489,7 +568,8 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                   key={idx}
                   onClick={() => {
                     setPrompt(q.text);
-                    handleAskAI(q.text);
+                    setStudyMode(q.mode);
+                    handleAskAI(q.text, q.mode);
                   }}
                   className="text-left text-xs bg-slate-950/80 hover:bg-indigo-950/50 border border-slate-800 hover:border-indigo-500/50 p-2.5 rounded-xl transition-all text-slate-300 hover:text-white flex items-center gap-2 group shadow-sm"
                 >
@@ -559,23 +639,39 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
 
             return (
               <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-indigo-500/30 space-y-3 animate-fade-in shadow-xl">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-indigo-300">Solution Breakdown</span>
+                    <span className="text-xs font-bold text-indigo-300">
+                      {studyMode === 'trace' ? 'Dry Run & Trace Table' : studyMode === 'complexity' ? 'Big-O Complexity Report' : studyMode === 'viva' ? 'Faculty Viva Voce Bank' : 'Solution Breakdown'}
+                    </span>
                     {modelUsedName && (
                       <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-cyan-300">
                         ⚡ {modelUsedName}
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveToArchive}
+                      className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                        isSaved
+                          ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 font-bold'
+                          : 'bg-slate-900 text-slate-300 hover:text-white border-slate-800 hover:border-indigo-500/40'
+                      }`}
+                      title="Save this verified solution to your browser study archive"
+                    >
+                      {isSaved ? <BookmarkCheck className="w-3.5 h-3.5 text-emerald-400" /> : <BookmarkPlus className="w-3.5 h-3.5 text-indigo-400" />}
+                      <span>{isSaved ? 'Saved to Archive' : 'Save to Study Bank'}</span>
+                    </button>
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Optional DeepSeek R1 Thought Process */}
@@ -608,7 +704,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           <span className="flex items-center gap-1.5 truncate">
             <Cpu className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             <span className="truncate">
-              OpenAI GPT-OSS (120B) • DeepSeek R1 • Qwen 2.5 Coder • Moondream Vision • Google Gemma 4
+              Qwen 2.5 Coder • Qwen QwQ Circuits • DeepSeek R1 • Moondream Vision • Llama 3.3 Fast
             </span>
           </span>
           <button onClick={onClose} className="hover:text-white font-semibold shrink-0 ml-2">

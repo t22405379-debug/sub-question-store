@@ -333,10 +333,21 @@ export default {
             }
           }
 
+          // Read specialized study mode
+          const studyMode = body.mode || 'full';
+          let modeSpecificInstruction = '';
+          if (studyMode === 'trace') {
+            modeSpecificInstruction = `\nFOCUS ON DRY RUN & TRACE TABLE:\nProvide an exhaustive step-by-step iteration trace table tracking all variables (e.g. n, count, temp, loop indices, node voltages) across each iteration for the exam script.`;
+          } else if (studyMode === 'complexity') {
+            modeSpecificInstruction = `\nFOCUS ON BIG-O COMPLEXITY & ARCHITECTURE:\nProvide in-depth Time Complexity (Best, Average, Worst Case) and Space Complexity (Auxiliary Memory & Call Stack) analysis with formal asymptotic notation and hardware cache efficiency insights.`;
+          } else if (studyMode === 'viva') {
+            modeSpecificInstruction = `\nFOCUS ON VIVA VOCE & LAB EXAM QUESTIONS:\nProvide the Top 5 most likely Professor Viva Voce questions on this exact code/circuit topic, along with model student answers that score 100% full marks.`;
+          }
+
           // Combine prompt with transcribed image content
           const fullUserQuery = transcribedContext
-            ? `[QUESTION PAPER SCAN TRANSCRIPTION]:\n${transcribedContext}\n\n[STUDENT REQUEST]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}`
-            : prompt || 'Explain and solve this examination topic step-by-step.';
+            ? `[QUESTION PAPER SCAN TRANSCRIPTION]:\n${transcribedContext}\n\n[STUDENT REQUEST]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}${modeSpecificInstruction}`
+            : (prompt || 'Explain and solve this examination topic step-by-step.') + modeSpecificInstruction;
 
           // Model cascade execution: Prioritize user-chosen or auto-detected targetModel FIRST
           const modelsToTry = [
