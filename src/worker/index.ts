@@ -272,79 +272,104 @@ export default {
         }
 
         if (env.AI) {
-          // Parse image bytes if provided
+          // Parse image bytes from Base64 Data URL, R2 Storage Key, or HTTP URL
           let imageBytes: number[] | null = null;
-          if (imageDataUrl && imageDataUrl.includes(',')) {
+          if (imageDataUrl) {
             try {
-              const base64Str = imageDataUrl.split(',')[1];
-              const bin = atob(base64Str);
-              imageBytes = new Array(bin.length);
-              for (let i = 0; i < bin.length; i++) {
-                imageBytes[i] = bin.charCodeAt(i);
+              if (imageDataUrl.startsWith('data:')) {
+                const base64Str = imageDataUrl.split(',')[1];
+                const bin = atob(base64Str);
+                imageBytes = new Array(bin.length);
+                for (let i = 0; i < bin.length; i++) {
+                  imageBytes[i] = bin.charCodeAt(i);
+                }
+              } else if (imageDataUrl.startsWith('/api/papers/') && env.PAPERS_BUCKET) {
+                const key = decodeURIComponent(
+                  imageDataUrl.replace('/api/papers/', '').replace('/file', '')
+                );
+                const obj = await env.PAPERS_BUCKET.get(key);
+                if (obj && obj.body) {
+                  const buf = await new Response(obj.body).arrayBuffer();
+                  imageBytes = Array.from(new Uint8Array(buf));
+                }
+              } else if (imageDataUrl.startsWith('http')) {
+                const imgRes = await fetch(imageDataUrl);
+                if (imgRes.ok) {
+                  const buf = await imgRes.arrayBuffer();
+                  imageBytes = Array.from(new Uint8Array(buf));
+                }
               }
             } catch (e) {
               console.warn('Image byte parsing error:', e);
             }
           }
 
-          const isVision =
-            targetModel.includes('moondream') ||
-            targetModel.includes('vision') ||
-            targetModel.includes('scout') ||
-            targetModel.includes('llava');
+          // If image is attached, run Vision OCR Model first to transcribe handwriting / diagrams
+          let transcribedContext = '';
+          if (imageBytes && imageBytes.length > 0) {
+            try {
+              const visionResult: any = await env.AI.run('@cf/moondream/moondream3.1-9B-A2B', {
+                prompt: 'Transcribe all handwritten code, questions, mathematical formulas, and diagrams shown in this examination paper image in complete detail.',
+                image: imageBytes,
+              });
+              transcribedContext = visionResult?.description || visionResult?.response || visionResult?.result || '';
+            } catch (vErr: any) {
+              console.warn('Vision OCR attempt error:', vErr?.message);
+            }
+          }
 
-          const modelsToTry = isVision && imageBytes
+          // Combine prompt with transcribed image content
+          const fullUserQuery = transcribedContext
+            ? `[QUESTION PAPER SCAN OCR TRANSCRIPTION]:\n${transcribedContext}\n\n[USER INSTRUCTION / QUESTION]:\n${prompt || 'Provide the complete, corrected, and step-by-step solution for this examination paper.'}`
+            : prompt || 'Explain and solve this examination topic step-by-step.';
+
+          // Model cascade execution
+          const isCodeQuery =
+            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('code') ||
+            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('c++') ||
+            (prompt + ' ' + courseCode + ' ' + subjectName + ' ' + transcribedContext).toLowerCase().includes('program');
+
+          const modelsToTry = isCodeQuery
             ? [
-                targetModel,
-                '@cf/moondream/moondream3.1-9B-A2B',
-                '@cf/meta/llama-3.2-11b-vision-instruct',
-                '@cf/meta/llama-3.3-70b-instruct',
-              ]
-            : [
-                targetModel,
+                '@cf/qwen/qwen2.5-coder-32b-instruct',
                 '@cf/meta/llama-3.3-70b-instruct',
                 '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+              ]
+            : [
+                targetModel === 'auto' ? '@cf/meta/llama-3.3-70b-instruct' : targetModel,
+                '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+                '@cf/meta/llama-3.3-70b-instruct',
                 '@cf/meta/llama-3.1-8b-instruct',
               ];
 
           for (const modelName of modelsToTry) {
             try {
-              let aiResult: any = null;
+              const aiResult: any = await env.AI.run(modelName as any, {
+                max_tokens: 2048,
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are an expert University Examination Professor and Senior Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
+The student has provided an exam question or handwritten camera scan.
+1. Read the student's question and any provided handwritten OCR scan carefully.
+2. If it is a programming question (C/C++/Java/Python), write COMPLETE, BUG-FREE, OPTIMIZED, AND READY-TO-RUN code with comments, input/output trace, and clear explanation of corrections made.
+3. If it is a mathematics or engineering question, provide full step-by-step derivation with formulas.
+Format with clean markdown headers and fenced code blocks.`,
+                  },
+                  {
+                    role: 'user',
+                    content: fullUserQuery,
+                  },
+                ],
+              });
 
-              if (modelName.includes('moondream') && imageBytes) {
-                aiResult = await env.AI.run(modelName as any, {
-                  prompt: prompt || 'Analyze this university exam paper scan. Transcribe the handwritten question and solve it step-by-step with formulas.',
-                  image: imageBytes,
-                });
-              } else if (modelName.includes('vision') && imageBytes) {
-                aiResult = await env.AI.run(modelName as any, {
-                  prompt: prompt || 'Solve the question in this exam scan with full mathematical derivation.',
-                  image: imageBytes,
-                });
-              } else {
-                aiResult = await env.AI.run(modelName as any, {
-                  max_tokens: 2048,
-                  messages: [
-                    {
-                      role: 'system',
-                      content: `You are an expert University Examination Professor and Academic Tutor for ${courseCode} (${subjectName} - ${examType}).
-Provide complete, structured, highly detailed, step-by-step academic solutions, formulas, and runnable code for undergraduate university students.
-Always provide full, complete code snippets without cutting them off.
-Format with clean markdown:
-- **Concept / Theorem / Algorithm Involved**
-- **Complete Step-by-Step Mathematical/Algorithmic Derivation or Code**
-- **Final Answer / Exam Tip to avoid common student mistakes**`,
-                    },
-                    {
-                      role: 'user',
-                      content: prompt || 'Explain and solve this examination topic step-by-step.',
-                    },
-                  ],
-                });
-              }
-
-              const answer = aiResult?.response || aiResult?.description || aiResult?.result;
+              let answer = aiResult?.response || aiResult?.result || aiResult?.description;
               if (answer) {
+                // If we transcribed an image, prepend a subtle notice showing what was read
+                if (transcribedContext && !answer.includes(transcribedContext.slice(0, 30))) {
+                  answer = `### 📸 Handwriting / Diagram Detected from Scan:\n> *${transcribedContext.trim()}*\n\n---\n\n${answer}`;
+                }
+
                 return jsonResponse(
                   {
                     success: true,
