@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Sparkles,
@@ -17,6 +17,9 @@ import {
   BookOpen,
   Terminal,
   Code2,
+  ChevronDown,
+  ChevronUp,
+  Settings2,
 } from 'lucide-react';
 import { QuestionPaper } from '../../types';
 import { Button } from '../ui/Button';
@@ -29,89 +32,94 @@ interface AITutorModalProps {
   imageSrc?: string;
 }
 
+type ModelCategory = 'all' | 'vision' | 'math' | 'code' | 'general';
+
 interface AIModelOption {
   id: string;
   name: string;
   badge: string;
-  category: 'smart' | 'vision' | 'math' | 'code' | 'general';
+  category: 'vision' | 'math' | 'code' | 'general';
+  size: string;
   icon: React.ReactNode;
   description: string;
 }
 
 const ALL_FREE_MODELS: AIModelOption[] = [
-  {
-    id: 'auto',
-    name: 'Smart Auto-Route',
-    badge: 'Recommended',
-    category: 'smart',
-    icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
-    description: 'Auto-detects whether you need Vision, Math, Code, or Theory',
-  },
   // Vision Models
   {
     id: '@cf/moondream/moondream3.1-9B-A2B',
     name: 'Moondream 3.1 Vision',
-    badge: 'OCR & Diagrams',
+    badge: 'OCR & Handwriting',
     category: 'vision',
-    icon: <Eye className="w-3.5 h-3.5 text-emerald-400" />,
+    size: '9B MoE',
+    icon: <Eye className="w-4 h-4 text-emerald-400" />,
     description: 'Reads handwritten exams, circuit diagrams, and graphs directly from scans',
   },
   {
     id: '@cf/meta/llama-3.2-11b-vision-instruct',
-    name: 'Llama 3.2 Vision (11B)',
+    name: 'Llama 3.2 Vision',
     badge: 'Visual Reasoning',
     category: 'vision',
-    icon: <Camera className="w-3.5 h-3.5 text-cyan-400" />,
+    size: '11B',
+    icon: <Camera className="w-4 h-4 text-cyan-400" />,
     description: 'Meta 11B Vision model for fine visual recognition & problem solving',
   },
   {
     id: '@cf/meta/llama-4-scout-17b-16e-instruct',
-    name: 'Llama 4 Scout (17B MoE)',
+    name: 'Llama 4 Scout',
     badge: 'Multimodal MoE',
     category: 'vision',
-    icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />,
+    size: '17B MoE',
+    icon: <Layers className="w-4 h-4 text-indigo-400" />,
     description: '17B parameter mixture-of-experts multimodal architecture',
   },
+
   // Math & Deep Reasoning Models
   {
     id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-    name: 'DeepSeek R1 (32B)',
+    name: 'DeepSeek R1',
     badge: 'Math Proofs',
     category: 'math',
-    icon: <Brain className="w-3.5 h-3.5 text-purple-400" />,
+    size: '32B',
+    icon: <Brain className="w-4 h-4 text-purple-400" />,
     description: 'Deep step-by-step mathematical reasoning, proofs, and calculus',
   },
   {
     id: '@cf/qwen/qwq-32b',
-    name: 'Qwen QwQ (32B)',
+    name: 'Qwen QwQ',
     badge: 'Circuits & Physics',
     category: 'math',
-    icon: <Layers className="w-3.5 h-3.5 text-blue-400" />,
+    size: '32B',
+    icon: <Layers className="w-4 h-4 text-blue-400" />,
     description: 'Specialized in circuit analysis, thermodynamics, and analytical equations',
   },
   {
     id: '@cf/openai/gpt-oss-120b',
-    name: 'OpenAI GPT-OSS (120B)',
-    badge: '120B MoE Giant',
+    name: 'OpenAI GPT-OSS',
+    badge: 'Massive MoE',
     category: 'math',
-    icon: <Sparkles className="w-3.5 h-3.5 text-rose-400" />,
+    size: '120B',
+    icon: <Sparkles className="w-4 h-4 text-rose-400" />,
     description: 'Massive 120B open-weight reasoning and logic model',
   },
+
   // Code Masters
   {
     id: '@cf/qwen/qwen2.5-coder-32b-instruct',
-    name: 'Qwen 2.5 Coder (32B)',
+    name: 'Qwen 2.5 Coder',
     badge: '#1 Code Master',
     category: 'code',
-    icon: <Code2 className="w-3.5 h-3.5 text-teal-400" />,
+    size: '32B',
+    icon: <Code2 className="w-4 h-4 text-teal-400" />,
     description: 'Top-tier code generation for C, C++, Java, Python, and DSA algorithms',
   },
   {
     id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
-    name: 'Mistral Small 3.1 (24B)',
-    badge: 'Algorithms',
+    name: 'Mistral Small 3.1',
+    badge: 'Logic & Code',
     category: 'code',
-    icon: <Terminal className="w-3.5 h-3.5 text-emerald-400" />,
+    size: '24B',
+    icon: <Terminal className="w-4 h-4 text-emerald-400" />,
     description: 'State-of-the-art coding and logic reasoning by Mistral AI',
   },
   {
@@ -119,35 +127,42 @@ const ALL_FREE_MODELS: AIModelOption[] = [
     name: 'Mistral 7B Code',
     badge: 'Fast Code',
     category: 'code',
-    icon: <Binary className="w-3.5 h-3.5 text-cyan-400" />,
+    size: '7B',
+    icon: <Binary className="w-4 h-4 text-cyan-400" />,
     description: 'Lightweight and fast code solver for programming exams',
   },
+
   // Flagship University Tutors
   {
     id: '@cf/meta/llama-3.3-70b-instruct',
-    name: 'Meta Llama 3.3 (70B)',
+    name: 'Meta Llama 3.3',
     badge: 'Flagship Tutor',
     category: 'general',
-    icon: <Cpu className="w-3.5 h-3.5 text-indigo-400" />,
+    size: '70B',
+    icon: <Cpu className="w-4 h-4 text-indigo-400" />,
     description: 'Flagship 70B parameter general university professor across all topics',
   },
   {
     id: '@cf/google/gemma-4-26b-a4b-it',
-    name: 'Google Gemma 4 (26B)',
+    name: 'Google Gemma 4',
     badge: 'Gemini-Core',
     category: 'general',
-    icon: <BookOpen className="w-3.5 h-3.5 text-amber-300" />,
-    description: 'Google intelligence built from Gemini 3 core architectures',
+    size: '26B',
+    icon: <BookOpen className="w-4 h-4 text-amber-300" />,
+    description: 'Google intelligence built from Gemini 3 core architecture',
   },
   {
     id: '@cf/meta/llama-3.1-8b-instruct',
-    name: 'Llama 3.1 (8B Fast)',
+    name: 'Llama 3.1 Fast',
     badge: 'Lightning Fast',
     category: 'general',
-    icon: <Flame className="w-3.5 h-3.5 text-rose-400" />,
+    size: '8B',
+    icon: <Flame className="w-4 h-4 text-rose-400" />,
     description: 'Ultra-fast low-latency answers and key formula flashcards',
   },
 ];
+
+const PREFERRED_MODEL_KEY = 'cse_preferred_ai_model_v1';
 
 export const AITutorModal: React.FC<AITutorModalProps> = ({
   isOpen,
@@ -155,7 +170,12 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   paper,
   imageSrc,
 }) => {
-  const [selectedModel, setSelectedModel] = useState('auto');
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    return localStorage.getItem(PREFERRED_MODEL_KEY) || 'auto';
+  });
+
+  const [activeCategory, setActiveCategory] = useState<ModelCategory>('all');
+  const [showModelDrawer, setShowModelDrawer] = useState(false);
   const [includeImage, setIncludeImage] = useState(true);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -163,7 +183,27 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   const [modelUsedName, setModelUsedName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem(PREFERRED_MODEL_KEY, selectedModel);
+  }, [selectedModel]);
+
   if (!isOpen || !paper) return null;
+
+  const currentSelectedModelInfo =
+    selectedModel === 'auto'
+      ? {
+          name: 'Smart Auto-Route Engine',
+          badge: 'Auto-Selects Best Model',
+          size: 'Adaptive',
+          icon: <Sparkles className="w-4 h-4 text-amber-400" />,
+          description: 'Auto-detects whether you need Vision, Math, Code, or Theory',
+        }
+      : ALL_FREE_MODELS.find((m) => m.id === selectedModel) || ALL_FREE_MODELS[0];
+
+  const filteredModels =
+    activeCategory === 'all'
+      ? ALL_FREE_MODELS
+      : ALL_FREE_MODELS.filter((m) => m.category === activeCategory);
 
   const handleAskAI = async (customQuestion?: string) => {
     const queryText = (customQuestion || prompt).trim();
@@ -247,11 +287,11 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                  Cloudflare Workers AI Catalog Suite
+                  AI Academic Tutor &amp; Problem Solver
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  All 13 Models 100% Free
+                  13 Free Cloudflare Models
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate">
@@ -267,27 +307,119 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           </button>
         </div>
 
-        {/* Model Switcher Tab Bar (All 13 Catalog Free Models) */}
-        <div className="px-4 py-2 bg-slate-950/95 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
-            Engine:
-          </span>
-          {ALL_FREE_MODELS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setSelectedModel(m.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-all ${
-                selectedModel === m.id
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold scale-105'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-              }`}
-              title={m.description}
-            >
-              {m.icon}
-              <span>{m.name}</span>
-            </button>
-          ))}
+        {/* Selected Model Showcase & Switcher Toggle Bar */}
+        <div className="px-4 sm:px-5 py-2.5 bg-slate-950/95 border-b border-slate-800/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0">
+              Active Engine:
+            </span>
+            <div className="flex items-center gap-2 bg-slate-900 border border-indigo-500/40 px-3 py-1 rounded-xl truncate">
+              {currentSelectedModelInfo.icon}
+              <span className="text-xs font-bold text-slate-100 truncate">
+                {currentSelectedModelInfo.name}
+              </span>
+              <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded border border-indigo-500/30 hidden sm:inline-block">
+                {currentSelectedModelInfo.size}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowModelDrawer(!showModelDrawer)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 transition-colors shrink-0"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>{showModelDrawer ? 'Hide Models' : 'Choose Model (13)'}</span>
+            {showModelDrawer ? <ChevronUp className="w-3.5 h-3.5 ml-0.5" /> : <ChevronDown className="w-3.5 h-3.5 ml-0.5" />}
+          </button>
         </div>
+
+        {/* Expandable Model Selection Drawer */}
+        {showModelDrawer && (
+          <div className="bg-slate-950 border-b border-slate-800 p-4 space-y-3 animate-fade-in">
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { id: 'all', label: 'All Engines (13)' },
+                { id: 'vision', label: '👁️ Vision & Scans (3)' },
+                { id: 'math', label: '🧮 Math & Proofs (3)' },
+                { id: 'code', label: '💻 Coding & DSA (3)' },
+                { id: 'general', label: '🎓 University Tutors (3)' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id as ModelCategory)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold shrink-0 transition-colors ${
+                    activeCategory === cat.id
+                      ? 'bg-indigo-600 text-white font-bold'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Models Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+              {/* Smart Auto Card */}
+              {activeCategory === 'all' && (
+                <button
+                  onClick={() => {
+                    setSelectedModel('auto');
+                    setShowModelDrawer(false);
+                  }}
+                  className={`text-left p-2.5 rounded-xl border transition-all ${
+                    selectedModel === 'auto'
+                      ? 'bg-indigo-950/80 border-indigo-500 shadow-md shadow-indigo-500/20'
+                      : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Smart Auto-Route</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/15 px-1.5 py-0.2 rounded">
+                      Auto
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                    Auto-picks Vision, DeepSeek Math, or Qwen Coder based on prompt.
+                  </p>
+                </button>
+              )}
+
+              {filteredModels.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setSelectedModel(m.id);
+                    setShowModelDrawer(false);
+                  }}
+                  className={`text-left p-2.5 rounded-xl border transition-all ${
+                    selectedModel === m.id
+                      ? 'bg-indigo-950/80 border-indigo-500 shadow-md shadow-indigo-500/20'
+                      : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100 truncate">
+                      {m.icon}
+                      <span className="truncate">{m.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-indigo-300 bg-indigo-500/15 px-1.5 py-0.2 rounded border border-indigo-500/20 shrink-0">
+                      {m.size}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                    {m.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
@@ -305,7 +437,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                     Question Paper Scan Attached
                   </span>
                   <span className="text-[10px] text-slate-400 block truncate">
-                    Vision AI models (Moondream, Llama 3.2 Vision, Llama 4 Scout) read handwriting and diagrams directly.
+                    Vision models (Moondream, Llama 3.2 Vision, Llama 4 Scout) will inspect handwriting and formulas directly.
                   </span>
                 </div>
               </div>
@@ -371,7 +503,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 className="absolute right-2.5 bottom-3.5 text-xs px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
               >
                 <Send className="w-3.5 h-3.5 mr-1" />
-                Solve with AI
+                Solve with {currentSelectedModelInfo.name.split(' ')[0]}
               </Button>
             </div>
           </div>
@@ -383,7 +515,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 <Sparkles className="w-5 h-5 animate-spin" />
               </div>
               <p className="text-xs text-indigo-300 font-semibold">
-                Running {ALL_FREE_MODELS.find((m) => m.id === selectedModel)?.name || 'AI Engine'} on Cloudflare GPU network...
+                Running {currentSelectedModelInfo.name} on Cloudflare GPU network...
               </p>
             </div>
           )}
