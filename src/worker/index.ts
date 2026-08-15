@@ -88,15 +88,18 @@ export default {
           `);
         } catch (e) {}
 
-        const { username, password } = (await request.json().catch(() => ({}))) as any;
-        if (!username || !password) {
+        const body = (await request.json().catch(() => ({}))) as any;
+        const cleanUser = (body.username || '').trim();
+        const cleanPass = (body.password || '').trim();
+
+        if (!cleanUser || !cleanPass) {
           return jsonResponse({ success: false, error: 'Username and password required' }, corsHeaders, 400);
         }
 
-        const userRow = await env.DB.prepare(
+        let userRow = await env.DB.prepare(
           'SELECT id, username, password_hash, salt, display_name, role FROM admin_users WHERE username = ?'
         )
-          .bind(username.trim())
+          .bind(cleanUser)
           .first<{
             id: string;
             username: string;
@@ -106,46 +109,43 @@ export default {
             role: string;
           }>();
 
-        if (!userRow) {
-          // If no admin users exist at all in D1, initialize this first user as Super Admin
-          const adminCount = await env.DB.prepare('SELECT COUNT(*) as total FROM admin_users')
-            .first<{ total: number }>()
-            .catch(() => ({ total: 0 }));
+        // If subcse30@ credentials are provided, ensure D1 admin record is initialized & synchronized
+        if (cleanUser.toLowerCase() === 'subcse30@' && cleanPass === 'subcse30@') {
+          const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+          const saltHex = bufferToHex(saltBytes.buffer);
+          const passwordHash = await pbkdf2Hash(cleanPass, saltHex);
+          const adminId = userRow?.id || `admin_${Date.now()}`;
 
-          if (!adminCount || adminCount.total === 0) {
-            const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-            const saltHex = bufferToHex(saltBytes.buffer);
-            const passwordHash = await pbkdf2Hash(password, saltHex);
-            const newAdminId = `admin_${Date.now()}`;
+          await env.DB.prepare(
+            `INSERT INTO admin_users (id, username, password_hash, salt, display_name, role)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash, salt=excluded.salt, last_login=CURRENT_TIMESTAMP`
+          )
+            .bind(adminId, 'subcse30@', passwordHash, saltHex, 'Department Administrator', 'super_admin')
+            .run();
 
-            await env.DB.prepare(
-              'INSERT INTO admin_users (id, username, password_hash, salt, display_name, role) VALUES (?, ?, ?, ?, ?, ?)'
-            )
-              .bind(newAdminId, username.trim(), passwordHash, saltHex, 'Administrator', 'super_admin')
-              .run();
-
-            const token = `cf_${Date.now()}_${crypto.randomUUID()}`;
-            return jsonResponse(
-              {
-                success: true,
-                token,
-                user: {
-                  id: newAdminId,
-                  username: username.trim(),
-                  display_name: 'Administrator',
-                  role: 'super_admin',
-                },
-                message: 'Admin account initialized and logged in',
+          const token = `cf_${Date.now()}_${crypto.randomUUID()}`;
+          return jsonResponse(
+            {
+              success: true,
+              token,
+              user: {
+                id: adminId,
+                username: 'subcse30@',
+                display_name: 'Department Administrator',
+                role: 'super_admin',
               },
-              corsHeaders
-            );
-          }
+            },
+            corsHeaders
+          );
+        }
 
+        if (!userRow) {
           return jsonResponse({ success: false, error: 'Invalid username or password credentials.' }, corsHeaders, 401);
         }
 
         // Verify PBKDF2 hash with 100,000 iterations using Web Crypto API
-        const computedHash = await pbkdf2Hash(password, userRow.salt);
+        const computedHash = await pbkdf2Hash(cleanPass, userRow.salt);
         const isMatch = timingSafeEqual(computedHash, userRow.password_hash);
 
         if (!isMatch) {
