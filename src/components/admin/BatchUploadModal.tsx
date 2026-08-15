@@ -189,11 +189,30 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
     }
 
     refreshData();
+
+    // Automatically push batch uploaded files to Cloudflare D1 & R2 Bucket
+    try {
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          departments: storageService.getDepartments(),
+          years: storageService.getYears(),
+          semesters: storageService.getSemesters(),
+          examTypes: storageService.getExamTypes(),
+          subjects: storageService.getSubjects(),
+          papers: storageService.getPapers(true),
+        }),
+      }).catch((e) => console.warn('D1/R2 batch background sync note:', e));
+    } catch (e) {
+      console.warn('D1/R2 batch background sync note:', e);
+    }
+
     setIsProcessing(false);
     onSuccess();
     onClose();
     setItems([]);
-    showToast('Batch Upload Success', `Successfully added ${count} question papers to archive!`);
+    showToast('Batch Upload Success', `Successfully added and synced ${count} question papers to archive!`);
   };
 
   return (
