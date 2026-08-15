@@ -1,5 +1,5 @@
 import { Env, ExecutionContext } from './types';
-import { querySubjects, queryQuestionPapers, incrementPaperDownloads, getBootstrapData } from './db';
+import { querySubjects, queryQuestionPapers, incrementPaperDownloads, getBootstrapData, syncPushData } from './db';
 import { fetchFromR2, uploadToR2 } from './r2';
 
 export default {
@@ -108,10 +108,15 @@ export default {
         );
       }
 
-      // 3. Complete D1 Bootstrap & Live Sync Endpoint
-      if (path === '/api/sync' && request.method === 'GET') {
+      // 3. Complete D1 Bootstrap & Live Sync Endpoint (GET: Pull, POST: Push)
+      if (path === '/api/sync') {
         if (!env.DB) {
           return jsonResponse({ success: false, error: 'D1 not connected' }, corsHeaders, 500);
+        }
+        if (request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const syncRes = await syncPushData(env.DB, body);
+          return jsonResponse({ success: true, message: 'D1 updated', ...syncRes }, corsHeaders);
         }
         const data = await getBootstrapData(env.DB);
         return jsonResponse({ success: true, data }, corsHeaders);

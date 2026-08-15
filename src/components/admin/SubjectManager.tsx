@@ -95,6 +95,24 @@ export const SubjectManager: React.FC = () => {
         showSuccessAlert('Subject Created', `${code} (${name}) was added to the curriculum.`);
       }
 
+      // Automatically sync live Cloudflare D1 database in background
+      try {
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            departments: storageService.getDepartments(),
+            years: storageService.getYears(),
+            semesters: storageService.getSemesters(),
+            examTypes: storageService.getExamTypes(),
+            subjects: storageService.getSubjects(),
+            papers: storageService.getPapers(true),
+          }),
+        }).catch((e) => console.warn('D1 background sync note:', e));
+      } catch (e) {
+        console.warn('D1 background sync note:', e);
+      }
+
       refreshData();
       setIsModalOpen(false);
     } catch (err: any) {

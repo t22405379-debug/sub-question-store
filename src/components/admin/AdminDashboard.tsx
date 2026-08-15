@@ -197,6 +197,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
             <Button
               variant="outline"
               size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      departments: storageService.getDepartments(),
+                      years: storageService.getYears(),
+                      semesters: storageService.getSemesters(),
+                      examTypes: storageService.getExamTypes(),
+                      subjects: storageService.getSubjects(),
+                      papers: storageService.getPapers(true),
+                    }),
+                  });
+                  const json = await res.json();
+                  if (json.success) {
+                    showSuccessAlert(
+                      'Live D1 Database Synced!',
+                      'All question papers and subjects were pushed to Cloudflare D1 SQL database. Your phone and all student devices will now show all live papers!'
+                    );
+                  } else {
+                    showErrorAlert('Sync Failed', json.error || 'Server error');
+                  }
+                } catch (e: any) {
+                  showErrorAlert('Sync Error', e?.message || 'Failed to connect to Cloudflare D1');
+                }
+              }}
+              title="Push all local courses and papers to live Cloudflare D1 SQL database"
+              className="text-xs font-bold text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-amber-400" />
+              Push to Live D1 Database
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleClearAll}
               title="Clear all papers & subjects to start clean"
               className="text-xs text-rose-400 hover:text-rose-300 border-rose-500/30 hover:border-rose-500/50"

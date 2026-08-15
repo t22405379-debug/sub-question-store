@@ -79,7 +79,26 @@ export async function queryQuestionPapers(db: D1Database, isAdmin = false, filte
   query += ` ORDER BY p.uploaded_at DESC`;
 
   const stmt = db.prepare(query);
-  return params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+  const raw = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+  const results = (raw.results || []).map((p: any) => {
+    let pages: string[] = [];
+    if (p.pages) {
+      try {
+        pages = typeof p.pages === 'string' ? JSON.parse(p.pages) : p.pages;
+      } catch {
+        pages = [p.file_data_url || p.pages];
+      }
+    } else if (p.file_data_url) {
+      pages = [p.file_data_url];
+    }
+    return {
+      ...p,
+      pages,
+      has_solution: Boolean(p.has_solution),
+    };
+  });
+
+  return { ...raw, results };
 }
 
 export async function insertQuestionPaper(db: D1Database, paper: {
@@ -142,4 +161,119 @@ export async function getBootstrapData(db: D1Database) {
     subjects,
     papers,
   };
+}
+
+export async function syncPushData(db: D1Database, data: any) {
+  const { departments, years, semesters, examTypes, subjects, papers } = data || {};
+
+  // Ensure tables exist
+  try {
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS departments (id TEXT PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL, description TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS academic_years (id TEXT PRIMARY KEY, name TEXT NOT NULL, order_index INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS semesters (id TEXT PRIMARY KEY, name TEXT NOT NULL, order_index INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS exam_types (id TEXT PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL, color_badge TEXT NOT NULL, order_index INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS subjects (id TEXT PRIMARY KEY, code TEXT NOT NULL, name TEXT NOT NULL, department_id TEXT, year_id TEXT, semester_id TEXT, credits REAL DEFAULT 3.0, syllabus_overview TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS question_papers (id TEXT PRIMARY KEY, subject_id TEXT, exam_type_id TEXT, session_year TEXT, file_key TEXT, file_name TEXT, file_type TEXT, file_size INTEGER, visibility INTEGER DEFAULT 1, download_count INTEGER DEFAULT 0, uploaded_by TEXT DEFAULT 'admin', uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, file_data_url TEXT, pages TEXT, has_solution INTEGER DEFAULT 0);
+    `);
+  } catch (e) {
+    console.warn('Schema init note:', e);
+  }
+
+  const batchQueries: any[] = [];
+
+  if (Array.isArray(departments) && departments.length > 0) {
+    for (const d of departments) {
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO departments (id, name, code, description) VALUES (?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, code=excluded.code, description=excluded.description`
+        ).bind(d.id, d.name, d.code, d.description || '')
+      );
+    }
+  }
+
+  if (Array.isArray(years) && years.length > 0) {
+    for (const y of years) {
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO academic_years (id, name, order_index) VALUES (?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, order_index=excluded.order_index`
+        ).bind(y.id, y.name, y.order_index || 1)
+      );
+    }
+  }
+
+  if (Array.isArray(semesters) && semesters.length > 0) {
+    for (const sem of semesters) {
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO semesters (id, name, order_index) VALUES (?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, order_index=excluded.order_index`
+        ).bind(sem.id, sem.name, sem.order_index || 1)
+      );
+    }
+  }
+
+  if (Array.isArray(examTypes) && examTypes.length > 0) {
+    for (const e of examTypes) {
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO exam_types (id, name, code, color_badge, order_index) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, code=excluded.code, color_badge=excluded.color_badge, order_index=excluded.order_index`
+        ).bind(e.id, e.name, e.code, e.color_badge || '', e.order_index || 1)
+      );
+    }
+  }
+
+  if (Array.isArray(subjects) && subjects.length > 0) {
+    for (const s of subjects) {
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO subjects (id, code, name, department_id, year_id, semester_id, credits, syllabus_overview)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET code=excluded.code, name=excluded.name, department_id=excluded.department_id, year_id=excluded.year_id, semester_id=excluded.semester_id, credits=excluded.credits, syllabus_overview=excluded.syllabus_overview`
+        ).bind(s.id, s.code, s.name, s.department_id || '', s.year_id || '', s.semester_id || '', s.credits || 3.0, s.syllabus_overview || '')
+      );
+    }
+  }
+
+  if (Array.isArray(papers) && papers.length > 0) {
+    for (const p of papers) {
+      const pagesJson = Array.isArray(p.pages) ? JSON.stringify(p.pages) : '';
+      batchQueries.push(
+        db.prepare(
+          `INSERT INTO question_papers (id, subject_id, exam_type_id, session_year, file_key, file_name, file_type, file_size, visibility, download_count, uploaded_by, uploaded_at, updated_at, file_data_url, pages, has_solution)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET subject_id=excluded.subject_id, exam_type_id=excluded.exam_type_id, session_year=excluded.session_year, file_key=excluded.file_key, file_name=excluded.file_name, file_type=excluded.file_type, file_size=excluded.file_size, visibility=excluded.visibility, download_count=excluded.download_count, uploaded_by=excluded.uploaded_by, updated_at=excluded.updated_at, file_data_url=excluded.file_data_url, pages=excluded.pages, has_solution=excluded.has_solution`
+        ).bind(
+          p.id,
+          p.subject_id || '',
+          p.exam_type_id || '',
+          p.session_year || '',
+          p.file_key || p.id,
+          p.file_name || 'paper.jpg',
+          p.file_type || 'image/jpeg',
+          p.file_size || 0,
+          p.visibility !== undefined ? p.visibility : 1,
+          p.download_count || 0,
+          p.uploaded_by || 'admin',
+          p.uploaded_at || new Date().toISOString(),
+          p.updated_at || new Date().toISOString(),
+          p.file_data_url || '',
+          pagesJson,
+          p.has_solution ? 1 : 0
+        )
+      );
+    }
+  }
+
+  if (batchQueries.length > 0) {
+    for (let i = 0; i < batchQueries.length; i += 50) {
+      const chunk = batchQueries.slice(i, i + 50);
+      await db.batch(chunk);
+    }
+  }
+
+  return { success: true, count: batchQueries.length };
 }
