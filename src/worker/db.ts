@@ -282,3 +282,38 @@ export async function syncPushData(db: D1Database, data: any) {
 
   return { success: true, count: batchQueries.length };
 }
+
+export async function deleteQuestionPaper(db: D1Database, paperId: string) {
+  const stmt = db.prepare(`DELETE FROM question_papers WHERE id = ?`);
+  return await stmt.bind(paperId).run();
+}
+
+export async function deleteMultipleQuestionPapers(db: D1Database, paperIds: string[]) {
+  if (!paperIds || paperIds.length === 0) return { success: true };
+  const placeholders = paperIds.map(() => '?').join(',');
+  const stmt = db.prepare(`DELETE FROM question_papers WHERE id IN (${placeholders})`);
+  return await stmt.bind(...paperIds).run();
+}
+
+export async function updatePaperVisibility(db: D1Database, paperIds: string[], visibility: number) {
+  if (!paperIds || paperIds.length === 0) return { success: true };
+  const placeholders = paperIds.map(() => '?').join(',');
+  const stmt = db.prepare(`UPDATE question_papers SET visibility = ? WHERE id IN (${placeholders})`);
+  return await stmt.bind(visibility, ...paperIds).run();
+}
+
+export async function deleteSubject(db: D1Database, subjectId: string) {
+  const batch = [
+    db.prepare(`DELETE FROM question_papers WHERE subject_id = ?`).bind(subjectId),
+    db.prepare(`DELETE FROM subjects WHERE id = ?`).bind(subjectId),
+  ];
+  return await db.batch(batch);
+}
+
+export async function clearAllArchiveData(db: D1Database) {
+  const batch = [
+    db.prepare(`DELETE FROM question_papers`),
+    db.prepare(`DELETE FROM subjects`),
+  ];
+  return await db.batch(batch);
+}

@@ -118,6 +118,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
 
     if (confirmed) {
       storageService.clearAllData();
+      fetch('/api/admin/clear-all', { method: 'POST' }).catch((e) => console.warn('D1 clear archive note:', e));
       refreshData();
       showSuccessAlert('Database Cleared', 'All courses and papers have been wiped to a clean slate.');
     }

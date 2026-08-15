@@ -133,6 +133,10 @@ export const SubjectManager: React.FC = () => {
 
     if (confirmed) {
       storageService.deleteSubject(subject.id);
+      fetch(`/api/subjects/${encodeURIComponent(subject.id)}`, {
+        method: 'DELETE',
+      }).catch((e) => console.warn('D1 delete subject note:', e));
+
       refreshData();
       showSuccessAlert('Subject Deleted', `${subject.code} has been removed.`);
     }

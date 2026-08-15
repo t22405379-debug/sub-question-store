@@ -39,7 +39,14 @@ export const PaperManager: React.FC = () => {
 
   // Toggle Visibility
   const handleToggleVisibility = (paper: QuestionPaper) => {
+    const newVis = paper.visibility === 1 ? 0 : 1;
     storageService.togglePaperVisibility(paper.id);
+    fetch('/api/papers/toggle-visibility', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [paper.id], visibility: newVis }),
+    }).catch((e) => console.warn('D1 visibility sync note:', e));
+
     refreshData();
     auditLogService.log('Visibility Change', `Toggled ${paper.course_code} visibility to ${paper.visibility === 1 ? 'hidden' : 'public'}`, 'info');
     showToast(
@@ -59,6 +66,10 @@ export const PaperManager: React.FC = () => {
 
     if (confirmed) {
       storageService.deletePaper(paper.id);
+      fetch(`/api/papers/${encodeURIComponent(paper.id)}`, {
+        method: 'DELETE',
+      }).catch((e) => console.warn('D1 delete paper note:', e));
+
       auditLogService.log('Delete Paper', `Permanently deleted ${paper.course_code} (${paper.file_name})`, 'warning');
       refreshData();
       showSuccessAlert('Paper Deleted', `${paper.course_code} ${paper.exam_type_name} has been removed.`);
@@ -84,6 +95,12 @@ export const PaperManager: React.FC = () => {
     selectedIds.forEach((id) => {
       storageService.updatePaper(id, { visibility: 1 });
     });
+    fetch('/api/papers/toggle-visibility', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: selectedIds, visibility: 1 }),
+    }).catch((e) => console.warn('D1 bulk publish note:', e));
+
     auditLogService.log('Bulk Publish', `Made ${selectedIds.length} question papers public`, 'info');
     refreshData();
     setSelectedIds([]);
@@ -94,6 +111,12 @@ export const PaperManager: React.FC = () => {
     selectedIds.forEach((id) => {
       storageService.updatePaper(id, { visibility: 0 });
     });
+    fetch('/api/papers/toggle-visibility', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: selectedIds, visibility: 0 }),
+    }).catch((e) => console.warn('D1 bulk hide note:', e));
+
     auditLogService.log('Bulk Hide', `Hidden ${selectedIds.length} question papers from public view`, 'info');
     refreshData();
     setSelectedIds([]);
@@ -111,6 +134,12 @@ export const PaperManager: React.FC = () => {
 
     if (confirmed) {
       selectedIds.forEach((id) => storageService.deletePaper(id));
+      fetch('/api/papers/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      }).catch((e) => console.warn('D1 bulk delete note:', e));
+
       auditLogService.log('Bulk Delete', `Deleted ${selectedIds.length} question papers`, 'danger');
       refreshData();
       setSelectedIds([]);

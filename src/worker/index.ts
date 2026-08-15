@@ -1,6 +1,17 @@
 import { Env, ExecutionContext } from './types';
-import { querySubjects, queryQuestionPapers, incrementPaperDownloads, getBootstrapData, syncPushData } from './db';
-import { fetchFromR2, uploadToR2 } from './r2';
+import { 
+  querySubjects, 
+  queryQuestionPapers, 
+  incrementPaperDownloads, 
+  getBootstrapData, 
+  syncPushData,
+  deleteQuestionPaper,
+  deleteMultipleQuestionPapers,
+  updatePaperVisibility,
+  deleteSubject,
+  clearAllArchiveData
+} from './db';
+import { fetchFromR2, uploadToR2, deleteFromR2 } from './r2';
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -202,7 +213,61 @@ export default {
         return jsonResponse({ success: true, message: 'Download counted' }, corsHeaders);
       }
 
-      // 8. Full Cloudflare Workers AI Powerhouse (All Catalog Models)
+      // 8. Delete Single Question Paper from D1 & R2
+      if (path.startsWith('/api/papers/') && !path.endsWith('/file') && !path.endsWith('/download') && request.method === 'DELETE') {
+        const paperId = decodeURIComponent(path.replace('/api/papers/', ''));
+        if (env.DB) {
+          await deleteQuestionPaper(env.DB, paperId);
+        }
+        if (env.PAPERS_BUCKET) {
+          await deleteFromR2(env.PAPERS_BUCKET, paperId).catch(() => {});
+        }
+        return jsonResponse({ success: true, message: 'Paper deleted' }, corsHeaders);
+      }
+
+      // 9. Bulk Delete Question Papers from D1 & R2
+      if (path === '/api/papers/bulk-delete' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as any;
+        const ids = body.ids || [];
+        if (env.DB && ids.length > 0) {
+          await deleteMultipleQuestionPapers(env.DB, ids);
+        }
+        if (env.PAPERS_BUCKET && ids.length > 0) {
+          for (const id of ids) {
+            await deleteFromR2(env.PAPERS_BUCKET, id).catch(() => {});
+          }
+        }
+        return jsonResponse({ success: true, message: 'Papers deleted' }, corsHeaders);
+      }
+
+      // 10. Toggle / Update Visibility for Papers
+      if (path === '/api/papers/toggle-visibility' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as any;
+        const { ids, visibility } = body;
+        if (env.DB && Array.isArray(ids) && ids.length > 0) {
+          await updatePaperVisibility(env.DB, ids, visibility);
+        }
+        return jsonResponse({ success: true, message: 'Visibility updated' }, corsHeaders);
+      }
+
+      // 11. Delete Subject and its Papers from D1
+      if (path.startsWith('/api/subjects/') && request.method === 'DELETE') {
+        const subjectId = decodeURIComponent(path.replace('/api/subjects/', ''));
+        if (env.DB) {
+          await deleteSubject(env.DB, subjectId);
+        }
+        return jsonResponse({ success: true, message: 'Subject deleted' }, corsHeaders);
+      }
+
+      // 12. Clear All Archive Data from D1
+      if (path === '/api/admin/clear-all' && request.method === 'POST') {
+        if (env.DB) {
+          await clearAllArchiveData(env.DB);
+        }
+        return jsonResponse({ success: true, message: 'Archive database cleared' }, corsHeaders);
+      }
+
+      // 13. Full Cloudflare Workers AI Powerhouse (All Catalog Models)
       if (path === '/api/ai/ask' && request.method === 'POST') {
         const body = (await request.json().catch(() => ({}))) as any;
         const prompt = (body.prompt || '').trim();
