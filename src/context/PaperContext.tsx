@@ -150,27 +150,13 @@ export const PaperProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setExamTypes(liveExams);
             storageService.setExamTypes(liveExams);
           }
-          if (Array.isArray(liveSubs) && liveSubs.length > 0) {
+          if (Array.isArray(liveSubs)) {
             setSubjects(liveSubs);
             storageService.setSubjects(liveSubs);
           }
-          if (Array.isArray(livePapers) && livePapers.length > 0) {
+          if (Array.isArray(livePapers)) {
             setPapers(livePapers);
             storageService.setPapers(livePapers);
-          } else if (storageService.getPapers(true).length > 0) {
-            // D1 is empty, but local storage has papers -> Auto-sync to D1 silently
-            fetch('/api/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                departments: storageService.getDepartments(),
-                years: storageService.getYears(),
-                semesters: storageService.getSemesters(),
-                examTypes: storageService.getExamTypes(),
-                subjects: storageService.getSubjects(),
-                papers: storageService.getPapers(true),
-              }),
-            }).catch((e) => console.warn('Silent auto-sync to D1 note:', e));
           }
         }
       }

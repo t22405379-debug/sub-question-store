@@ -66,9 +66,13 @@ export const PaperManager: React.FC = () => {
 
     if (confirmed) {
       storageService.deletePaper(paper.id);
-      fetch(`/api/papers/${encodeURIComponent(paper.id)}`, {
-        method: 'DELETE',
-      }).catch((e) => console.warn('D1 delete paper note:', e));
+      try {
+        await fetch(`/api/papers/${encodeURIComponent(paper.id)}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('D1 delete paper note:', e);
+      }
 
       auditLogService.log('Delete Paper', `Permanently deleted ${paper.course_code} (${paper.file_name})`, 'warning');
       refreshData();
@@ -91,15 +95,19 @@ export const PaperManager: React.FC = () => {
     );
   };
 
-  const handleBulkPublish = () => {
+  const handleBulkPublish = async () => {
     selectedIds.forEach((id) => {
       storageService.updatePaper(id, { visibility: 1 });
     });
-    fetch('/api/papers/toggle-visibility', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: selectedIds, visibility: 1 }),
-    }).catch((e) => console.warn('D1 bulk publish note:', e));
+    try {
+      await fetch('/api/papers/toggle-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, visibility: 1 }),
+      });
+    } catch (e) {
+      console.warn('D1 bulk publish note:', e);
+    }
 
     auditLogService.log('Bulk Publish', `Made ${selectedIds.length} question papers public`, 'info');
     refreshData();
@@ -107,15 +115,19 @@ export const PaperManager: React.FC = () => {
     showSuccessAlert('Bulk Published', `${selectedIds.length} papers are now live for students.`);
   };
 
-  const handleBulkHide = () => {
+  const handleBulkHide = async () => {
     selectedIds.forEach((id) => {
       storageService.updatePaper(id, { visibility: 0 });
     });
-    fetch('/api/papers/toggle-visibility', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: selectedIds, visibility: 0 }),
-    }).catch((e) => console.warn('D1 bulk hide note:', e));
+    try {
+      await fetch('/api/papers/toggle-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, visibility: 0 }),
+      });
+    } catch (e) {
+      console.warn('D1 bulk hide note:', e);
+    }
 
     auditLogService.log('Bulk Hide', `Hidden ${selectedIds.length} question papers from public view`, 'info');
     refreshData();
@@ -134,11 +146,15 @@ export const PaperManager: React.FC = () => {
 
     if (confirmed) {
       selectedIds.forEach((id) => storageService.deletePaper(id));
-      fetch('/api/papers/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedIds }),
-      }).catch((e) => console.warn('D1 bulk delete note:', e));
+      try {
+        await fetch('/api/papers/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selectedIds }),
+        });
+      } catch (e) {
+        console.warn('D1 bulk delete note:', e);
+      }
 
       auditLogService.log('Bulk Delete', `Deleted ${selectedIds.length} question papers`, 'danger');
       refreshData();
