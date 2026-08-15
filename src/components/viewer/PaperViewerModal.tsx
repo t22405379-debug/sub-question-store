@@ -404,42 +404,41 @@ export const PaperViewerModal: React.FC = () => {
           } bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-slide-up`}
         >
           {/* Top Viewer Control Bar */}
-          <div className="flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-800 bg-slate-950/80">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 border-b border-slate-800 bg-slate-950/90 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded border border-indigo-500/30 shrink-0">
                 {paper.course_code}
               </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <h3 className="text-xs sm:text-sm font-bold text-slate-100 truncate">{paper.subject_name}</h3>
                   {paper.has_solution && (
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                      ✓ Solution Included
+                    <span className="hidden sm:inline-flex px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold shrink-0">
+                      ✓ Solution
                     </span>
                   )}
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
-                  {paper.exam_type_name} • Session {paper.session_year}
-                  {totalPages > 1 && ` • Page ${activePageIndex + 1} of ${totalPages}`}
+                  {paper.exam_type_name} • {paper.session_year}
                 </p>
               </div>
             </div>
 
             {/* Action Toolbar */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Multi-Page Navigation Slider */}
               {totalPages > 1 ? (
-                <div className="flex items-center bg-indigo-950/60 border border-indigo-500/40 rounded-xl p-0.5">
+                <div className="flex items-center bg-indigo-950/70 border border-indigo-500/40 rounded-xl p-0.5 shadow-sm">
                   <button
                     disabled={activePageIndex === 0}
                     onClick={() => setActivePageIndex((p) => p - 1)}
-                    className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1 sm:p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     title="Previous Page (← Key)"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
-                  <span className="text-[11px] font-mono font-bold text-indigo-300 px-2 flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5" />
+                  <span className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-300 px-1.5 sm:px-2 flex items-center gap-0.5 sm:gap-1">
+                    <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     <span>
                       {activePageIndex + 1}/{totalPages}
                     </span>
@@ -447,14 +446,14 @@ export const PaperViewerModal: React.FC = () => {
                   <button
                     disabled={activePageIndex === totalPages - 1}
                     onClick={() => setActivePageIndex((p) => p + 1)}
-                    className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1 sm:p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     title="Next Page (→ Key)"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 </div>
               ) : subjectPapers.length > 1 ? (
-                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5">
+                <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5">
                   <button
                     disabled={!hasPrevPaper}
                     onClick={handlePrev}
@@ -477,8 +476,8 @@ export const PaperViewerModal: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* Zoom & Rotate controls */}
-              <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 gap-0.5">
+              {/* Desktop Zoom & Rotate controls */}
+              <div className="hidden md:flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 gap-0.5">
                 <button
                   onClick={handleZoomOut}
                   className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
@@ -509,18 +508,18 @@ export const PaperViewerModal: React.FC = () => {
                 </button>
               </div>
 
-              {/* 1-Click Clean Print Button */}
+              {/* Desktop-only Clean Print Button */}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handlePrintPaper}
                 title="Print All Pages (P / Ctrl+P)"
-                className="text-slate-300 hover:text-indigo-300 hover:border-indigo-500/50"
+                className="text-slate-300 hover:text-indigo-300 hover:border-indigo-500/50 hidden md:inline-flex"
               >
                 <Printer className="w-4 h-4" />
               </Button>
 
-              {/* AI Problem Solver & Tutor */}
+              {/* Desktop AI Tutor button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -532,73 +531,26 @@ export const PaperViewerModal: React.FC = () => {
                 <span>AI Tutor</span>
               </Button>
 
-              {/* Practiced Toggle */}
-              <Button
-                variant={isPracticed ? 'primary' : 'outline'}
-                size="sm"
-                onClick={handleTogglePracticed}
-                className={`text-xs px-2.5 py-1.5 hidden sm:inline-flex ${
-                  isPracticed ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white' : ''
-                }`}
-                title="Mark paper as solved"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                <span>{isPracticed ? 'Practiced' : 'Mark Solved'}</span>
-              </Button>
-
-              {/* Notes Drawer Toggle */}
-              <Button
-                variant={showNotesDrawer ? 'primary' : 'outline'}
-                size="icon"
-                onClick={() => setShowNotesDrawer(!showNotesDrawer)}
-                title="Personal Study Notes"
-                className="text-slate-300"
-              >
-                <NotebookPen className="w-4 h-4" />
-              </Button>
-
-              {/* QR Code Share */}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowQRModal(true)}
-                title="QR Code Share"
-                className="text-slate-300"
-              >
-                <QrCode className="w-4 h-4" />
-              </Button>
-
               {/* Bookmark Button */}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => toggleBookmark(paper.id)}
                 title={isBookmarked ? 'Remove saved' : 'Save Paper'}
-                className="text-slate-300"
+                className="text-slate-300 h-8 w-8 sm:h-9 sm:w-9"
               >
-                <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-amber-400 text-amber-400' : ''}`} />
+                <Bookmark className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isBookmarked ? 'fill-amber-400 text-amber-400' : ''}`} />
               </Button>
 
-              {/* Fullscreen Toggle */}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                className="text-slate-300 hidden md:inline-flex"
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </Button>
-
-              {/* Download Button */}
+              {/* Download Button on desktop */}
               <Button
                 variant="primary"
                 size="sm"
                 onClick={handleDownload}
-                className="text-xs px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 border-indigo-500 text-white font-bold"
+                className="text-xs px-2.5 sm:px-3 py-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 border-indigo-500 text-white font-bold hidden sm:inline-flex"
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
-                <span className="hidden sm:inline">Download</span>
+                <span>Download</span>
               </Button>
 
               {/* Close Modal */}
@@ -606,9 +558,9 @@ export const PaperViewerModal: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 onClick={closeViewer}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white h-8 w-8 sm:h-9 sm:w-9"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
@@ -649,6 +601,27 @@ export const PaperViewerModal: React.FC = () => {
                   </div>
                 )}
               </div>
+                   {/* Floating Side Nav Arrows for Mobile & Touch */}
+              {totalPages > 1 && (
+                <>
+                  <button
+                    disabled={activePageIndex === 0}
+                    onClick={() => setActivePageIndex((p) => p - 1)}
+                    className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-slate-900/85 hover:bg-indigo-600 border border-slate-700/80 text-white disabled:opacity-0 disabled:pointer-events-none transition-all shadow-2xl backdrop-blur-md z-30"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    disabled={activePageIndex === totalPages - 1}
+                    onClick={() => setActivePageIndex((p) => p + 1)}
+                    className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-slate-900/85 hover:bg-indigo-600 border border-slate-700/80 text-white disabled:opacity-0 disabled:pointer-events-none transition-all shadow-2xl backdrop-blur-md z-30"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                </>
+              )}
 
               {/* Multi-Page Quick Thumbnail Pill Strip at Bottom */}
               {totalPages > 1 && (
@@ -696,56 +669,54 @@ export const PaperViewerModal: React.FC = () => {
                       className="w-full bg-slate-950/90 text-slate-200 placeholder-slate-500 text-xs rounded-xl border border-slate-700/80 p-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed"
                     />
                     <Button type="submit" variant="primary" size="sm" className="w-full text-xs">
-                      Save Notes Locally
+                      Save Note
                     </Button>
                   </form>
                 </div>
               ) : (
-                /* Standard Specs Panel */
                 <>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+                  {/* Paper Specifications */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                       Paper Specifications
                     </h4>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                    <div className="divide-y divide-slate-800/80 text-xs space-y-2">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Department / Domain</span>
-                        <span className="font-semibold text-indigo-300">{paper.department_code || 'General'}</span>
+                        <span className="text-slate-200 font-medium">{paper.department_name || 'General'}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Placement</span>
-                        <span className="font-semibold text-slate-200">
-                          {paper.year_name} • {paper.semester_name}
+                        <span className="text-slate-200 font-medium">
+                          {paper.year_name || 'General'} • {paper.semester_name || 'Semester'}
                         </span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Course Code</span>
-                        <span className="font-mono font-bold text-indigo-400">{paper.course_code}</span>
+                        <span className="font-mono text-indigo-400 font-bold">{paper.course_code}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5 items-center">
                         <span className="text-slate-400">Exam Type</span>
-                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-semibold ${paper.badge_color}`}>
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${paper.badge_color || 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'}`}>
                           {paper.exam_type_name}
                         </span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Total Pages</span>
-                        <span className="font-semibold text-indigo-400 font-mono">
-                          {totalPages} {totalPages === 1 ? 'Page' : 'Pages'}
-                        </span>
+                        <span className="text-indigo-300 font-bold font-mono">{totalPages} Page{totalPages > 1 ? 's' : ''}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Session Year</span>
-                        <span className="font-semibold text-slate-200">{paper.session_year}</span>
+                        <span className="text-slate-200 font-mono">{paper.session_year}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">File Size</span>
                         <span className="text-slate-200 font-mono">{formatBytes(paper.file_size)}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-800/80">
+                      <div className="flex justify-between py-1.5">
                         <span className="text-slate-400">Downloads</span>
-                        <span className="font-semibold text-emerald-400 font-mono">
-                          {paper.download_count} times
+                        <span className="text-emerald-400 font-mono font-medium">
+                          {paper.download_count || 0} times
                         </span>
                       </div>
                     </div>
@@ -762,58 +733,74 @@ export const PaperViewerModal: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Quick Actions */}
+                  {/* Quick Action Tools */}
                   <div className="space-y-2 pt-1">
-                    <Button
-                      variant="primary"
-                      size="md"
-                      onClick={handleDownload}
-                      className="w-full text-xs shadow-lg shadow-indigo-600/30 bg-indigo-600 hover:bg-indigo-500 border-indigo-500"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Page {activePageIndex + 1}
-                    </Button>
+                    {/* Primary Actions Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={handleDownload}
+                        className="w-full text-xs font-bold shadow-lg shadow-indigo-600/30 bg-indigo-600 hover:bg-indigo-500 border-indigo-500 py-2.5 flex items-center justify-center"
+                      >
+                        <Download className="w-4 h-4 mr-1.5" />
+                        Download {totalPages > 1 ? `Page ${activePageIndex + 1}` : 'Paper'}
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAIModal(true)}
-                      className="w-full text-xs text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 font-bold"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-                      Ask AI Problem Solver
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={() => setShowAIModal(true)}
+                        className="w-full text-xs text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 font-bold py-2.5 flex items-center justify-center"
+                      >
+                        <Sparkles className="w-4 h-4 mr-1.5 text-amber-400" />
+                        Ask AI Tutor
+                      </Button>
+                    </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportPdf}
-                      isLoading={isExportingPdf}
-                      className="w-full text-xs text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/10"
-                    >
-                      <FileDown className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
-                      Export Merged PDF Booklet
-                    </Button>
+                    {/* Secondary 2x2 Grid for Mobile & Desktop */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportPdf}
+                        isLoading={isExportingPdf}
+                        className="text-xs text-indigo-300 border-slate-700/80 bg-slate-900/60 hover:bg-indigo-500/10 py-2 flex items-center justify-center"
+                      >
+                        <FileDown className="w-3.5 h-3.5 mr-1 text-indigo-400" />
+                        Merged PDF
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePrintPaper}
-                      className="w-full text-xs text-slate-300"
-                    >
-                      <Printer className="w-3.5 h-3.5 mr-1.5" />
-                      Print All {totalPages} Page(s)
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrintPaper}
+                        className="text-xs text-emerald-300 border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 py-2 flex items-center justify-center"
+                      >
+                        <Printer className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                        Clean Print
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowQRModal(true)}
-                      className="w-full text-xs text-slate-300"
-                    >
-                      <QrCode className="w-3.5 h-3.5 mr-1.5" />
-                      Generate QR Code
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowQRModal(true)}
+                        className="text-xs text-slate-300 border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 py-2 flex items-center justify-center"
+                      >
+                        <QrCode className="w-3.5 h-3.5 mr-1 text-cyan-400" />
+                        QR Code
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNotesDrawer(true)}
+                        className="text-xs text-slate-300 border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 py-2 flex items-center justify-center"
+                      >
+                        <NotebookPen className="w-3.5 h-3.5 mr-1 text-violet-400" />
+                        Study Notes
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
