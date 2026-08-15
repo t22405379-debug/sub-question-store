@@ -25,7 +25,20 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab }) => {
   const { getAnalytics, refreshData, openViewer, departments, years, semesters, examTypes, subjects, papers } = usePapers();
-  const stats = getAnalytics();
+  
+  const totalPapers = papers.length;
+  const totalSubjects = subjects.length;
+  const totalDownloads = papers.reduce((sum, p) => sum + (p.download_count || 0), 0);
+  const hiddenPapers = papers.filter((p) => p.visibility === 0).length;
+  const recentUploads = [...papers].sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()).slice(0, 6);
+
+  const stats = {
+    totalPapers,
+    totalSubjects,
+    totalDownloads,
+    hiddenPapers,
+    recentUploads,
+  };
 
   const [isSingleUploadOpen, setIsSingleUploadOpen] = useState(false);
   const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);

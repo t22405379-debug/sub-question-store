@@ -222,11 +222,24 @@ export const PaperProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const recordDownload = useCallback((paperId: string) => {
-    const newCount = storageService.incrementDownloadCount(paperId);
+    // 1. Instant local memory and storage update
+    storageService.incrementDownloadCount(paperId);
     setPapers((prev) =>
-      prev.map((p) => (p.id === paperId ? { ...p, download_count: newCount } : p))
+      prev.map((p) => (p.id === paperId ? { ...p, download_count: (p.download_count || 0) + 1 } : p))
     );
-  }, []);
+
+    // 2. Increment in live Cloudflare D1 SQL database
+    fetch(`/api/papers/${encodeURIComponent(paperId)}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then(() => {
+        // Refresh local cache with latest counts
+        loadData();
+      })
+      .catch((e) => console.warn('D1 download tracking note:', e));
+  }, [loadData]);
 
   const refreshData = useCallback(() => {
     loadData();

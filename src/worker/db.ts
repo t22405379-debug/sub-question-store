@@ -137,7 +137,7 @@ export async function insertQuestionPaper(db: D1Database, paper: {
 export async function incrementPaperDownloads(db: D1Database, paperId: string) {
   const stmt = db.prepare(`
     UPDATE question_papers
-    SET download_count = download_count + 1
+    SET download_count = COALESCE(download_count, 0) + 1
     WHERE id = ?
   `);
   return await stmt.bind(paperId).run();
