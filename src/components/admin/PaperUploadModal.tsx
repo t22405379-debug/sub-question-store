@@ -47,6 +47,8 @@ export const PaperUploadModal: React.FC<PaperUploadModalProps> = ({
   onSuccess,
 }) => {
   const { subjects, examTypes, refreshData } = usePapers();
+  const availableSubjects = subjects.length > 0 ? subjects : storageService.getSubjects();
+  const availableExamTypes = examTypes.length > 0 ? examTypes : storageService.getExamTypes();
 
   // Form State
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
@@ -64,7 +66,14 @@ export const PaperUploadModal: React.FC<PaperUploadModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Populate data when editing
+  // Auto-refresh taxonomy on modal open
+  useEffect(() => {
+    if (isOpen) {
+      refreshData();
+    }
+  }, [isOpen, refreshData]);
+
+  // Populate data when editing or opening
   useEffect(() => {
     if (editPaper) {
       setSelectedSubjectId(editPaper.subject_id);
@@ -98,15 +107,23 @@ export const PaperUploadModal: React.FC<PaperUploadModalProps> = ({
         setPages([]);
       }
     } else {
-      if (subjects.length > 0) setSelectedSubjectId(subjects[0].id);
-      if (examTypes.length > 0) setSelectedExamTypeId(examTypes[0].id);
+      if (availableSubjects.length > 0) {
+        setSelectedSubjectId((prev) =>
+          prev && availableSubjects.some((s) => s.id === prev) ? prev : availableSubjects[0].id
+        );
+      }
+      if (availableExamTypes.length > 0) {
+        setSelectedExamTypeId((prev) =>
+          prev && availableExamTypes.some((e) => e.id === prev) ? prev : availableExamTypes[0].id
+        );
+      }
       setSessionYear('2024-2025');
       setVisibility(true);
       setHasSolution(false);
       setPages([]);
     }
     setError(null);
-  }, [editPaper, isOpen, subjects, examTypes]);
+  }, [editPaper, isOpen, availableSubjects, availableExamTypes]);
 
   // Support direct Clipboard Paste (Ctrl+V) for multiple sequential pages
   useEffect(() => {
@@ -450,7 +467,7 @@ export const PaperUploadModal: React.FC<PaperUploadModalProps> = ({
               onChange={(e) => setSelectedSubjectId(e.target.value)}
               required
             >
-              {subjects.map((s) => (
+              {availableSubjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.code} — {s.name}
                 </option>
@@ -465,7 +482,7 @@ export const PaperUploadModal: React.FC<PaperUploadModalProps> = ({
               onChange={(e) => setSelectedExamTypeId(e.target.value)}
               required
             >
-              {examTypes.map((e) => (
+              {availableExamTypes.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} ({e.code})
                 </option>

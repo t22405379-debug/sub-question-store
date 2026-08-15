@@ -37,9 +37,19 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
   onSuccess,
 }) => {
   const { subjects, examTypes, refreshData } = usePapers();
+  const availableSubjects = subjects.length > 0 ? subjects : storageService.getSubjects();
+  const availableExamTypes = examTypes.length > 0 ? examTypes : storageService.getExamTypes();
+
   const [items, setItems] = useState<BatchItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-refresh taxonomy on modal open
+  useEffect(() => {
+    if (isOpen) {
+      refreshData();
+    }
+  }, [isOpen, refreshData]);
 
   // Clipboard Paste Support (Ctrl+V)
   useEffect(() => {
@@ -254,7 +264,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                         onChange={(e) => handleItemChange(item.id, 'subjectId', e.target.value)}
                         className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-indigo-300 font-mono max-w-[160px]"
                       >
-                        {subjects.map((s) => (
+                        {availableSubjects.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.code} ({s.name})
                           </option>
@@ -267,7 +277,7 @@ export const BatchUploadModal: React.FC<BatchUploadModalProps> = ({
                         onChange={(e) => handleItemChange(item.id, 'examTypeId', e.target.value)}
                         className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200"
                       >
-                        {examTypes.map((e) => (
+                        {availableExamTypes.map((e) => (
                           <option key={e.id} value={e.id}>
                             {e.name}
                           </option>
