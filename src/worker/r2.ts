@@ -5,6 +5,25 @@ import { R2Bucket, R2Object } from './types';
  * Supports streaming reads, zero egress fee downloads, and sanitized key uploads.
  */
 
+export function dataUrlToArrayBuffer(dataUrl: string): { buffer: ArrayBuffer; contentType: string } | null {
+  try {
+    if (!dataUrl || !dataUrl.startsWith('data:')) return null;
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return null;
+    const contentType = match[1];
+    const base64Data = match[2];
+    const binaryString = atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return { buffer: bytes.buffer, contentType };
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function uploadToR2(
   bucket: R2Bucket,
   key: string,
@@ -47,3 +66,8 @@ export async function deleteFromR2(
 ): Promise<void> {
   await bucket.delete(key);
 }
+
+export async function listR2Objects(bucket: R2Bucket, limit: number = 100) {
+  return await bucket.list({ limit });
+}
+

@@ -11,7 +11,7 @@ import {
   deleteSubject,
   clearAllArchiveData
 } from './db';
-import { fetchFromR2, uploadToR2, deleteFromR2 } from './r2';
+import { fetchFromR2, uploadToR2, deleteFromR2, dataUrlToArrayBuffer, listR2Objects } from './r2';
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -32,15 +32,22 @@ export default {
     }
 
     try {
-      // 1. Health check & Diagnostics
-      if (path === '/api/health') {
+      // 1. Health check & Diagnostics & Bucket Inspection
+      if (path === '/api/health' || path === '/api/bucket-status') {
         let r2Status = 'not configured';
         let d1Status = 'not configured';
+        let r2Objects: any[] = [];
 
         if (env.PAPERS_BUCKET) {
           try {
-            await env.PAPERS_BUCKET.list({ limit: 1 });
-            r2Status = 'connected (sub-question-r2)';
+            const list = await env.PAPERS_BUCKET.list({ limit: 100 });
+            r2Status = `connected (sub-question-r2) - ${list.objects.length} objects`;
+            r2Objects = list.objects.map((obj) => ({
+              key: obj.key,
+              size: obj.size,
+              uploaded: obj.uploaded,
+              httpMetadata: obj.httpMetadata,
+            }));
           } catch (e: any) {
             r2Status = `error: ${e.message}`;
           }
@@ -61,6 +68,8 @@ export default {
             engine: 'Cloudflare Pages Functions',
             r2: r2Status,
             d1: d1Status,
+            r2ObjectsCount: r2Objects.length,
+            r2Objects,
           },
           corsHeaders
         );
@@ -173,15 +182,58 @@ export default {
         );
       }
 
-      // 3. Complete D1 Bootstrap & Live Sync Endpoint (GET: Pull, POST: Push)
+      // 3. Complete D1 Bootstrap & Live Sync Endpoint (GET: Pull, POST: Push to D1 & R2)
       if (path === '/api/sync') {
         if (!env.DB) {
           return jsonResponse({ success: false, error: 'D1 not connected' }, corsHeaders, 500);
         }
         if (request.method === 'POST') {
-          const body = await request.json().catch(() => ({}));
+          const body = (await request.json().catch(() => ({}))) as any;
           const syncRes = await syncPushData(env.DB, body);
-          return jsonResponse({ success: true, message: 'D1 updated', ...syncRes }, corsHeaders);
+
+          // Automatically push image files into Cloudflare R2 bucket
+          let r2UploadedCount = 0;
+          if (env.PAPERS_BUCKET && Array.isArray(body.papers)) {
+            for (const p of body.papers) {
+              try {
+                // Upload primary file if available as base64 dataUrl
+                if (p.file_data_url && typeof p.file_data_url === 'string' && p.file_data_url.startsWith('data:')) {
+                  const parsed = dataUrlToArrayBuffer(p.file_data_url);
+                  if (parsed) {
+                    const key = p.file_key || `papers/${p.id}/${p.file_name || 'main.webp'}`;
+                    await uploadToR2(env.PAPERS_BUCKET, key, parsed.buffer, parsed.contentType, {
+                      paperId: p.id,
+                      fileName: p.file_name || 'paper.webp',
+                      courseCode: p.course_code || '',
+                    });
+                    r2UploadedCount++;
+                  }
+                }
+
+                // Upload multi-page files
+                if (Array.isArray(p.pages)) {
+                  for (let idx = 0; idx < p.pages.length; idx++) {
+                    const pageUrl = p.pages[idx];
+                    if (typeof pageUrl === 'string' && pageUrl.startsWith('data:')) {
+                      const parsed = dataUrlToArrayBuffer(pageUrl);
+                      if (parsed) {
+                        const pageKey = `papers/${p.id}/page_${idx + 1}.webp`;
+                        await uploadToR2(env.PAPERS_BUCKET, pageKey, parsed.buffer, parsed.contentType, {
+                          paperId: p.id,
+                          page: String(idx + 1),
+                        });
+                        r2UploadedCount++;
+                      }
+                    }
+                  }
+                }
+              } catch (r2Err) {
+                console.warn('R2 sync individual item error:', r2Err);
+              }
+            }
+          }
+
+          return jsonResponse({ success: true, message: 'D1 & R2 synchronized', r2UploadedCount, ...syncRes }, corsHeaders);
         }
         const data = await getBootstrapData(env.DB);
         return jsonResponse({ success: true, data }, corsHeaders);
