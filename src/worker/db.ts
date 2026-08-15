@@ -166,7 +166,7 @@ export async function getBootstrapData(db: D1Database) {
 export async function syncPushData(db: D1Database, data: any) {
   const { departments, years, semesters, examTypes, subjects, papers } = data || {};
 
-  // Ensure tables exist
+  // Ensure tables and all columns exist
   try {
     await db.exec(`
       CREATE TABLE IF NOT EXISTS departments (id TEXT PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL, description TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -174,11 +174,16 @@ export async function syncPushData(db: D1Database, data: any) {
       CREATE TABLE IF NOT EXISTS semesters (id TEXT PRIMARY KEY, name TEXT NOT NULL, order_index INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS exam_types (id TEXT PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL, color_badge TEXT NOT NULL, order_index INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS subjects (id TEXT PRIMARY KEY, code TEXT NOT NULL, name TEXT NOT NULL, department_id TEXT, year_id TEXT, semester_id TEXT, credits REAL DEFAULT 3.0, syllabus_overview TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS question_papers (id TEXT PRIMARY KEY, subject_id TEXT, exam_type_id TEXT, session_year TEXT, file_key TEXT, file_name TEXT, file_type TEXT, file_size INTEGER, visibility INTEGER DEFAULT 1, download_count INTEGER DEFAULT 0, uploaded_by TEXT DEFAULT 'admin', uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, file_data_url TEXT, pages TEXT, has_solution INTEGER DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS question_papers (id TEXT PRIMARY KEY, subject_id TEXT, exam_type_id TEXT, session_year TEXT, file_key TEXT, file_name TEXT, file_type TEXT, file_size INTEGER, visibility INTEGER DEFAULT 1, download_count INTEGER DEFAULT 0, uploaded_by TEXT DEFAULT 'admin', uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     `);
   } catch (e) {
     console.warn('Schema init note:', e);
   }
+
+  // Safely ensure new columns exist in D1 SQLite
+  try { await db.exec(`ALTER TABLE question_papers ADD COLUMN file_data_url TEXT;`); } catch {}
+  try { await db.exec(`ALTER TABLE question_papers ADD COLUMN pages TEXT;`); } catch {}
+  try { await db.exec(`ALTER TABLE question_papers ADD COLUMN has_solution INTEGER DEFAULT 0;`); } catch {}
 
   const batchQueries: any[] = [];
 
