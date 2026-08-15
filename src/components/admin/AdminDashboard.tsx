@@ -253,21 +253,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
                   const json = await res.json();
                   if (json.success) {
                     showSuccessAlert(
-                      'Live D1 Database Synced!',
-                      'All question papers and subjects were pushed to Cloudflare D1 SQL database. Your phone and all student devices will now show all live papers!'
+                      'Cloudflare Synced (D1 & R2)!',
+                      `All question papers and course taxonomies have been pushed to Cloudflare D1 SQL database and ${json.r2UploadedCount !== undefined ? `${json.r2UploadedCount} image scan(s) uploaded to Cloudflare R2 bucket (sub-question-r2).` : 'R2 bucket.'}`
                     );
+                    refreshData();
                   } else {
                     showErrorAlert('Sync Failed', json.error || 'Server error');
                   }
                 } catch (e: any) {
-                  showErrorAlert('Sync Error', e?.message || 'Failed to connect to Cloudflare D1');
+                  showErrorAlert('Sync Error', e?.message || 'Failed to connect to Cloudflare');
                 }
               }}
-              title="Push all local courses and papers to live Cloudflare D1 SQL database"
+              title="Push all local courses, papers, and images to Cloudflare D1 database and R2 Bucket"
               className="text-xs font-bold text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10"
             >
               <Sparkles className="w-3.5 h-3.5 mr-1 text-amber-400" />
-              Push to Live D1 Database
+              Push to Cloudflare (D1 &amp; R2)
             </Button>
 
             <Button
