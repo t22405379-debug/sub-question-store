@@ -10,10 +10,14 @@ import {
   FolderUp,
   HardDriveDownload,
   HardDriveUpload,
+  Search,
+  X,
 } from 'lucide-react';
 import { usePapers } from '../../context/PaperContext';
 import { storageService } from '../../services/storage';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Pagination } from '../ui/Pagination';
 import { PaperUploadModal } from './PaperUploadModal';
 import { BatchUploadModal } from './BatchUploadModal';
 import { showToast } from '../ui/Toast';
@@ -30,14 +34,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
   const totalSubjects = subjects.length;
   const totalDownloads = papers.reduce((sum, p) => sum + (p.download_count || 0), 0);
   const hiddenPapers = papers.filter((p) => p.visibility === 0).length;
-  const recentUploads = [...papers].sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()).slice(0, 6);
+
+  const [dashboardSearch, setDashboardSearch] = useState('');
+  const [dashboardPage, setDashboardPage] = useState(1);
+  const [dashboardPageSize, setDashboardPageSize] = useState(20);
+
+  const sortedPapers = [...papers].sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime());
+
+  const filteredDashboardPapers = sortedPapers.filter((p) => {
+    if (!dashboardSearch.trim()) return true;
+    const q = dashboardSearch.toLowerCase();
+    return (
+      (p.course_code || '').toLowerCase().includes(q) ||
+      (p.subject_name || '').toLowerCase().includes(q) ||
+      (p.exam_type_name || '').toLowerCase().includes(q) ||
+      (p.session_year || '').toLowerCase().includes(q)
+    );
+  });
+
+  const paginatedDashboardPapers = filteredDashboardPapers.slice(
+    (dashboardPage - 1) * dashboardPageSize,
+    dashboardPage * dashboardPageSize
+  );
 
   const stats = {
     totalPapers,
     totalSubjects,
     totalDownloads,
     hiddenPapers,
-    recentUploads,
+    recentUploads: sortedPapers.slice(0, 6),
   };
 
   const [isSingleUploadOpen, setIsSingleUploadOpen] = useState(false);
@@ -349,23 +374,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
         </div>
       </div>
 
-      {/* Recent Uploads Table */}
+      {/* Recent Uploads Section with Real-Time Search */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
-            Recent Uploads
-          </h3>
-          {stats.recentUploads.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+              Recent Uploads &amp; Papers
+            </h3>
+            <p className="text-xs text-slate-400">Latest question papers uploaded to the archive</p>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onNavigateTab('papers')}
               className="text-xs text-indigo-400 hover:text-indigo-300"
             >
-              View All Papers →
+              Full Question Paper Manager →
             </Button>
-          )}
+          </div>
         </div>
+
+        {/* Real-time Search Box */}
+        {papers.length > 0 && (
+          <div className="relative">
+            <Input
+              icon={<Search className="w-4 h-4 text-indigo-400" />}
+              placeholder="Search recent uploads by course code, title, or exam in real-time..."
+              value={dashboardSearch}
+              onChange={(e) => {
+                setDashboardSearch(e.target.value);
+                setDashboardPage(1);
+              }}
+              className="pr-8 text-xs"
+            />
+            {dashboardSearch && (
+              <button
+                onClick={() => setDashboardSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
           <div className="overflow-x-auto">
@@ -381,8 +434,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {stats.recentUploads.length > 0 ? (
-                  stats.recentUploads.map((p) => (
+                {paginatedDashboardPapers.length > 0 ? (
+                  paginatedDashboardPapers.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="px-5 py-3.5 font-mono font-bold text-indigo-400">
                         {p.course_code}
@@ -391,13 +444,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
                         {p.subject_name}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${p.badge_color}`}>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${p.badge_color || 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'}`}>
                           {p.exam_type_name}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-slate-400">{p.session_year}</td>
+                      <td className="px-5 py-3.5 text-slate-400 font-mono">{p.session_year}</td>
                       <td className="px-5 py-3.5 font-mono font-semibold text-emerald-400">
-                        {p.download_count}
+                        {p.download_count || 0}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <Button
@@ -414,13 +467,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
                 ) : (
                   <tr>
                     <td colSpan={6} className="text-center py-10 text-slate-500">
-                      No question papers uploaded yet. Click &ldquo;Upload Paper&rdquo; or &ldquo;Batch Multi-Upload&rdquo; to add your question papers.
+                      {dashboardSearch
+                        ? `No question papers match "${dashboardSearch}".`
+                        : 'No question papers uploaded yet. Click "Upload Paper" or "Batch Multi-Upload" to add your question papers.'}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* 20 Items Per Page Pagination */}
+          {filteredDashboardPapers.length > dashboardPageSize && (
+            <div className="p-3 bg-slate-950/50 border-t border-slate-800/80">
+              <Pagination
+                currentPage={dashboardPage}
+                totalItems={filteredDashboardPapers.length}
+                pageSize={dashboardPageSize}
+                onPageChange={setDashboardPage}
+                onPageSizeChange={(size) => {
+                  setDashboardPageSize(size);
+                  setDashboardPage(1);
+                }}
+                itemLabel="papers"
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Calendar,
@@ -8,10 +8,14 @@ import {
   FolderOpen,
   Tag,
   Building,
+  Search,
+  X,
 } from 'lucide-react';
 import { usePapers } from '../../context/PaperContext';
 import { downloadPapersAsZip } from '../../services/zipExporter';
 import { PaperCard } from './PaperCard';
+import { Input } from '../ui/Input';
+import { Pagination } from '../ui/Pagination';
 
 interface HierarchyStepperProps {
   onOpenUploadForSubject?: (subjId: string) => void;
@@ -37,6 +41,17 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
     setSelectedSubjectId,
     setSelectedExamTypeId,
   } = usePapers();
+
+  // Local Search & Pagination States
+  const [courseSearch, setCourseSearch] = useState('');
+  const [paperSearch, setPaperSearch] = useState('');
+  const [paperPage, setPaperPage] = useState(1);
+  const [paperPageSize, setPaperPageSize] = useState(20);
+
+  // Reset page when search or exam filter changes
+  useEffect(() => {
+    setPaperPage(1);
+  }, [paperSearch, selectedExamTypeId, selectedSubjectId]);
 
   // Current selections
   const currentDept = departments.find((d) => d.id === selectedDepartmentId) || departments[0];
@@ -74,9 +89,21 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
   // --------------------------------------------------------------------------
   if (currentSubject && currentYear && currentSemester) {
     const subjectPapers = getPapersForSubject(currentSubject.id);
-    const filteredByExam = selectedExamTypeId
-      ? subjectPapers.filter((p) => p.exam_type_id === selectedExamTypeId)
-      : subjectPapers;
+    const filteredPapers = subjectPapers.filter((p) => {
+      if (selectedExamTypeId && p.exam_type_id !== selectedExamTypeId) return false;
+      if (paperSearch.trim()) {
+        const q = paperSearch.toLowerCase();
+        return (
+          (p.course_code || '').toLowerCase().includes(q) ||
+          (p.file_name || '').toLowerCase().includes(q) ||
+          (p.session_year || '').toLowerCase().includes(q) ||
+          (p.exam_type_name || '').toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    const paginatedPapers = filteredPapers.slice((paperPage - 1) * paperPageSize, paperPage * paperPageSize);
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -113,7 +140,7 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
               <button
                 onClick={() => {
                   downloadPapersAsZip(
-                    filteredByExam.length > 0 ? filteredByExam : subjectPapers,
+                    filteredPapers.length > 0 ? filteredPapers : subjectPapers,
                     `${currentSubject.code}_Study_Pack.zip`
                   );
                 }}
@@ -127,47 +154,85 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
           </div>
         </div>
 
-        {/* Exam Type Filter Pills */}
-        <div className="flex items-center gap-1.5 flex-wrap bg-slate-900/60 p-2 rounded-2xl border border-slate-800">
-          <span className="text-xs font-semibold text-slate-400 px-2 flex items-center gap-1">
-            <Tag className="w-3.5 h-3.5 text-indigo-400" />
-            Filter Exam:
-          </span>
-          <button
-            onClick={() => setSelectedExamTypeId('')}
-            className={`text-xs px-3 py-1.5 rounded-xl font-semibold transition-all ${
-              !selectedExamTypeId
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            All Exams ({subjectPapers.length})
-          </button>
-          {examTypes.map((e) => {
-            const count = subjectPapers.filter((p) => p.exam_type_id === e.id).length;
-            const isSelected = selectedExamTypeId === e.id;
-            return (
+        {/* Real-time Search and Filter Pills */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          <div className="flex-1 relative">
+            <Input
+              icon={<Search className="w-4 h-4 text-indigo-400" />}
+              placeholder="Search papers by year, exam, or title in real-time..."
+              value={paperSearch}
+              onChange={(e) => setPaperSearch(e.target.value)}
+              className="pr-8 text-xs"
+            />
+            {paperSearch && (
               <button
-                key={e.id}
-                onClick={() => setSelectedExamTypeId(isSelected ? '' : e.id)}
-                className={`text-xs px-3 py-1.5 rounded-xl font-semibold transition-all border ${
-                  isSelected
-                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                    : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                }`}
+                onClick={() => setPaperSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
               >
-                {e.name} ({count})
+                <X className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Exam Type Filter Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800">
+            <span className="text-xs font-semibold text-slate-400 px-2 flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5 text-indigo-400" />
+              Exam:
+            </span>
+            <button
+              onClick={() => setSelectedExamTypeId('')}
+              className={`text-xs px-3 py-1.5 rounded-xl font-semibold transition-all ${
+                !selectedExamTypeId
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All ({subjectPapers.length})
+            </button>
+            {examTypes.map((e) => {
+              const count = subjectPapers.filter((p) => p.exam_type_id === e.id).length;
+              const isSelected = selectedExamTypeId === e.id;
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => setSelectedExamTypeId(isSelected ? '' : e.id)}
+                  className={`text-xs px-3 py-1.5 rounded-xl font-semibold transition-all border ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                      : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  {e.name} ({count})
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Papers Grid */}
-        {filteredByExam.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredByExam.map((paper) => (
-              <PaperCard key={paper.id} paper={paper} viewMode="grid" />
-            ))}
+        {paginatedPapers.length > 0 ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedPapers.map((paper) => (
+                <PaperCard key={paper.id} paper={paper} viewMode="grid" />
+              ))}
+            </div>
+
+            {/* 20 Items Per Page Pagination */}
+            {filteredPapers.length > paperPageSize && (
+              <Pagination
+                currentPage={paperPage}
+                totalItems={filteredPapers.length}
+                pageSize={paperPageSize}
+                onPageChange={setPaperPage}
+                onPageSizeChange={(size) => {
+                  setPaperPageSize(size);
+                  setPaperPage(1);
+                }}
+                itemLabel="papers"
+              />
+            )}
           </div>
         ) : (
           <div className="glass-panel rounded-2xl p-12 text-center space-y-4 border border-slate-800">
@@ -175,9 +240,9 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
               <FolderOpen className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-100">No question papers uploaded for {currentSubject.code} yet</h3>
+              <h3 className="text-base font-bold text-slate-100">No question papers matching your search</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                You haven't uploaded any question paper files to this course yet. Go to the Admin Portal to upload midterms, class tests, or finals.
+                Try searching for a different term or clear the exam filter.
               </p>
             </div>
           </div>
@@ -191,6 +256,15 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
   // --------------------------------------------------------------------------
   if (currentYear && currentSemester) {
     const semSubjects = getSubjectsForSem(currentYear.id, currentSemester.id);
+    const filteredSemSubjects = semSubjects.filter((subj) => {
+      if (!courseSearch.trim()) return true;
+      const q = courseSearch.toLowerCase();
+      return (
+        subj.code.toLowerCase().includes(q) ||
+        subj.name.toLowerCase().includes(q) ||
+        (subj.syllabus_overview || '').toLowerCase().includes(q)
+      );
+    });
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -198,7 +272,10 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
         <div className="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setSelectedSemesterId('')}
+              onClick={() => {
+                setSelectedSemesterId('');
+                setCourseSearch('');
+              }}
               className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-semibold"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -225,10 +302,31 @@ export const HierarchyStepper: React.FC<HierarchyStepperProps> = () => {
           </span>
         </div>
 
+        {/* Real-time Course Search Bar */}
+        {semSubjects.length > 0 && (
+          <div className="relative">
+            <Input
+              icon={<Search className="w-4 h-4 text-indigo-400" />}
+              placeholder="Search courses by code (e.g. CSE-1101) or title in real-time..."
+              value={courseSearch}
+              onChange={(e) => setCourseSearch(e.target.value)}
+              className="pr-8 text-xs"
+            />
+            {courseSearch && (
+              <button
+                onClick={() => setCourseSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Subjects Grid */}
-        {semSubjects.length > 0 ? (
+        {filteredSemSubjects.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {semSubjects.map((subj) => {
+            {filteredSemSubjects.map((subj) => {
               const count = getPapersForSubject(subj.id).length;
               return (
                 <div

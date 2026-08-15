@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Edit2,
@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   Search,
+  X,
   FileText,
   Image as ImageIcon,
   CheckSquare,
@@ -19,6 +20,7 @@ import { formatBytes } from '../../services/imageOptimizer';
 import { auditLogService } from '../../services/auditLog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Pagination } from '../ui/Pagination';
 import { PaperUploadModal } from './PaperUploadModal';
 import { showToast } from '../ui/Toast';
 import { showDeleteConfirmAlert, showSuccessAlert, showConfirmAlert } from '../../services/alert';
@@ -30,12 +32,21 @@ export const PaperManager: React.FC = () => {
   const [filterExam, setFilterExam] = useState('');
   const [filterVisibility, setFilterVisibility] = useState<string>('all');
 
+  // Pagination state (Default 20 per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   // Modal States
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
 
   // Bulk Multi-Select State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Reset page to 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterExam, filterVisibility]);
 
   // Toggle Visibility
   const handleToggleVisibility = (paper: QuestionPaper) => {
@@ -182,6 +193,9 @@ export const PaperManager: React.FC = () => {
     return true;
   });
 
+  // Paginated Slicing (20 items per page)
+  const paginatedPapers = displayedPapers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
@@ -206,15 +220,25 @@ export const PaperManager: React.FC = () => {
         </Button>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Filter and Real-Time Search Bar */}
       <div className="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center gap-3">
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full relative">
           <Input
-            icon={<Search className="w-4 h-4" />}
-            placeholder="Search papers by course code, subject, or filename..."
+            icon={<Search className="w-4 h-4 text-indigo-400" />}
+            placeholder="Search papers by course code, subject, year, or filename in real-time..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-8"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1"
+              title="Clear Search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <select
@@ -224,7 +248,9 @@ export const PaperManager: React.FC = () => {
           >
             <option value="">All Exam Types</option>
             {examTypes.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
             ))}
           </select>
 
@@ -235,29 +261,36 @@ export const PaperManager: React.FC = () => {
           >
             <option value="all">All Statuses</option>
             <option value="visible">Public Only</option>
-            <option value="hidden">Hidden / Draft Only</option>
+            <option value="hidden">Hidden Only</option>
           </select>
         </div>
       </div>
 
-      {/* Bulk Action Sticky Bar (Appears when items are selected) */}
+      {/* Bulk Action Controls Bar */}
       {selectedIds.length > 0 && (
-        <div className="rounded-2xl p-3.5 bg-indigo-950/80 border border-indigo-500/40 shadow-xl flex items-center justify-between animate-fade-in">
-          <div className="flex items-center gap-2 text-xs text-indigo-200 font-bold">
+        <div className="bg-indigo-950/70 border border-indigo-500/40 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fade-in backdrop-blur-md">
+          <div className="flex items-center gap-2 text-xs text-indigo-200 font-semibold">
             <CheckSquare className="w-4 h-4 text-indigo-400" />
-            <span>{selectedIds.length} {selectedIds.length === 1 ? 'paper' : 'papers'} selected</span>
+            <span>
+              <strong className="text-white font-mono">{selectedIds.length}</strong> question paper(s) selected
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleBulkPublish} className="text-xs text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/10">
-              <Eye className="w-3.5 h-3.5 mr-1" />
-              Make Public
+            <Button variant="secondary" size="sm" onClick={handleBulkPublish} className="text-xs">
+              <Eye className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+              Publish
             </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkHide} className="text-xs text-slate-300 border-slate-700 hover:bg-slate-800">
-              <EyeOff className="w-3.5 h-3.5 mr-1" />
-              Hide / Draft
+            <Button variant="secondary" size="sm" onClick={handleBulkHide} className="text-xs">
+              <EyeOff className="w-3.5 h-3.5 mr-1 text-amber-400" />
+              Hide
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkDelete}
+              className="text-xs text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+            >
               <Trash2 className="w-3.5 h-3.5 mr-1" />
               Delete Selected
             </Button>
@@ -265,75 +298,84 @@ export const PaperManager: React.FC = () => {
         </div>
       )}
 
-      {/* Papers Table */}
+      {/* Main Papers Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/70 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3.5 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    checked={displayedPapers.length > 0 && selectedIds.length === displayedPapers.length}
-                    onChange={() => handleSelectAll(displayedPapers)}
-                    className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                  />
+                <th className="px-5 py-4 w-10">
+                  <button
+                    onClick={() => handleSelectAll(displayedPapers)}
+                    className="text-slate-400 hover:text-indigo-400 transition-colors"
+                  >
+                    {selectedIds.length > 0 && selectedIds.length === displayedPapers.length ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-400" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
                 </th>
-                <th className="px-4 py-3.5">Course Code</th>
-                <th className="px-4 py-3.5">Subject &amp; File</th>
-                <th className="px-4 py-3.5">Exam &amp; Session</th>
-                <th className="px-4 py-3.5">File Size</th>
-                <th className="px-4 py-3.5">Downloads</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+                <th className="px-5 py-4">Course Code</th>
+                <th className="px-5 py-4">Subject &amp; File</th>
+                <th className="px-5 py-4">Exam &amp; Session</th>
+                <th className="px-5 py-4">File Size</th>
+                <th className="px-5 py-4">Downloads</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {displayedPapers.length > 0 ? (
-                displayedPapers.map((paper) => {
-                  const isPdf = paper.file_type === 'application/pdf';
-                  const isVisible = paper.visibility === 1;
+              {paginatedPapers.length > 0 ? (
+                paginatedPapers.map((paper) => {
                   const isSelected = selectedIds.includes(paper.id);
+                  const isVisible = paper.visibility === 1;
+                  const isImage = paper.file_type.startsWith('image/');
+                  const pageCount = paper.pages && paper.pages.length > 0 ? paper.pages.length : 1;
 
                   return (
                     <tr
                       key={paper.id}
-                      className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-indigo-950/20' : ''}`}
+                      className={`hover:bg-slate-800/40 transition-colors ${
+                        isSelected ? 'bg-indigo-950/20' : ''
+                      }`}
                     >
                       {/* Checkbox */}
-                      <td className="px-4 py-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelectId(paper.id)}
-                          className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                        />
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => handleToggleSelectId(paper.id)}
+                          className="text-slate-400 hover:text-indigo-400 transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-400" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
                       </td>
 
-                      {/* Code */}
-                      <td className="px-4 py-4 font-mono font-bold text-indigo-400">
+                      {/* Course Code */}
+                      <td className="px-5 py-4 font-mono font-bold text-indigo-400">
                         {paper.course_code}
                       </td>
 
                       {/* Subject & File */}
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                            {isPdf ? <FileText className="w-4 h-4 text-rose-400" /> : <ImageIcon className="w-4 h-4 text-indigo-400" />}
+                          <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                            {isImage ? <ImageIcon className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-slate-100 block truncate max-w-xs">
-                                {paper.subject_name}
-                              </span>
+                          <div className="truncate max-w-xs">
+                            <span className="font-semibold text-slate-200 block truncate flex items-center gap-1.5">
+                              {paper.subject_name}
                               {paper.has_solution && (
-                                <span className="px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold shrink-0">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                   Solution
                                 </span>
                               )}
-                            </div>
-                            <span className="text-[11px] text-slate-500 font-mono block truncate max-w-xs">
-                              {paper.file_name}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block truncate font-mono">
+                              {paper.file_name} {pageCount > 1 ? `(${pageCount} pages)` : ''}
                             </span>
                           </div>
                         </div>
@@ -341,11 +383,15 @@ export const PaperManager: React.FC = () => {
 
                       {/* Exam & Session */}
                       <td className="px-5 py-4">
-                        <div className="space-y-0.5">
-                          <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${paper.badge_color}`}>
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                              paper.badge_color || 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
+                            }`}
+                          >
                             {paper.exam_type_name}
                           </span>
-                          <span className="text-[11px] text-slate-400 block">
+                          <span className="text-[11px] text-slate-400 block font-mono">
                             Session {paper.session_year}
                           </span>
                         </div>
@@ -358,7 +404,7 @@ export const PaperManager: React.FC = () => {
 
                       {/* Downloads */}
                       <td className="px-5 py-4 font-mono font-semibold text-emerald-400">
-                        {paper.download_count}
+                        {paper.download_count || 0}
                       </td>
 
                       {/* Status / Visibility */}
@@ -424,6 +470,23 @@ export const PaperManager: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* 20 Items Per Page Pagination */}
+        {displayedPapers.length > 0 && (
+          <div className="p-3 bg-slate-950/50 border-t border-slate-800/80">
+            <Pagination
+              currentPage={currentPage}
+              totalItems={displayedPapers.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              itemLabel="papers"
+            />
+          </div>
+        )}
       </div>
 
       {/* Upload & Edit Modal */}

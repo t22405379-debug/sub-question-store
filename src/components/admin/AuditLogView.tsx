@@ -7,17 +7,32 @@ import {
   CheckCircle2,
   AlertTriangle,
   Info,
+  Search,
+  X,
 } from 'lucide-react';
 import { auditLogService, AuditLogEntry } from '../../services/auditLog';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Pagination } from '../ui/Pagination';
 import { showDeleteConfirmAlert, showSuccessAlert } from '../../services/alert';
 
 export const AuditLogView: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterLevel, setFilterLevel] = useState<string>('all');
+
+  // Pagination state (20 per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     setLogs(auditLogService.getLogs());
   }, []);
+
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterLevel]);
 
   const handleClearLogs = async () => {
     const confirmed = await showDeleteConfirmAlert(
@@ -49,6 +64,22 @@ export const AuditLogView: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Filtered Logs
+  const filteredLogs = logs.filter((log) => {
+    if (filterLevel !== 'all' && log.level !== filterLevel) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        log.user.toLowerCase().includes(q) ||
+        log.action.toLowerCase().includes(q) ||
+        log.details.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -84,6 +115,40 @@ export const AuditLogView: React.FC = () => {
         </div>
       </div>
 
+      {/* Real-time Search & Filter Bar */}
+      <div className="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center gap-3">
+        <div className="flex-1 w-full relative">
+          <Input
+            icon={<Search className="w-4 h-4 text-indigo-400" />}
+            placeholder="Search audit trail by admin user, action, or details in real-time..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-8"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1"
+              title="Clear Search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <select
+            value={filterLevel}
+            onChange={(e) => setFilterLevel(e.target.value)}
+            className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="all">All Severity Levels</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="danger">Danger</option>
+          </select>
+        </div>
+      </div>
+
       {/* Audit Log Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
@@ -98,8 +163,8 @@ export const AuditLogView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300 font-mono">
-              {logs.length > 0 ? (
-                logs.map((log) => (
+              {paginatedLogs.length > 0 ? (
+                paginatedLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="px-5 py-3.5 text-slate-400 font-normal">
                       {new Date(log.timestamp).toLocaleString()}
@@ -132,13 +197,30 @@ export const AuditLogView: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-slate-500 font-sans">
                     <ShieldAlert className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                    <span>No security audit logs recorded yet. Administrative events will be logged here automatically.</span>
+                    <span>No security audit logs match the active filter criteria.</span>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* 20 Items Per Page Pagination */}
+        {filteredLogs.length > 0 && (
+          <div className="p-3 bg-slate-950/50 border-t border-slate-800/80">
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredLogs.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              itemLabel="log events"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

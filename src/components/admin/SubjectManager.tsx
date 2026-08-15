@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Edit2,
   Trash2,
   Search,
+  X,
 } from 'lucide-react';
 import { Subject } from '../../types';
 import { usePapers } from '../../context/PaperContext';
@@ -12,7 +13,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Dialog } from '../ui/Dialog';
-import { showToast } from '../ui/Toast';
+import { Pagination } from '../ui/Pagination';
 import { showDeleteConfirmAlert, showSuccessAlert } from '../../services/alert';
 
 export const SubjectManager: React.FC = () => {
@@ -22,6 +23,15 @@ export const SubjectManager: React.FC = () => {
   const [filterDept, setFilterDept] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterSem, setFilterSem] = useState('');
+
+  // Pagination state (20 per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterDept, filterYear, filterSem]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,7 +105,6 @@ export const SubjectManager: React.FC = () => {
         showSuccessAlert('Subject Created', `${code} (${name}) was added to the curriculum.`);
       }
 
-      // Automatically sync live Cloudflare D1 database in background
       try {
         fetch('/api/sync', {
           method: 'POST',
@@ -104,9 +113,7 @@ export const SubjectManager: React.FC = () => {
             departments: storageService.getDepartments(),
             years: storageService.getYears(),
             semesters: storageService.getSemesters(),
-            examTypes: storageService.getExamTypes(),
             subjects: storageService.getSubjects(),
-            papers: storageService.getPapers(true),
           }),
         }).catch((e) => console.warn('D1 background sync note:', e));
       } catch (e) {
@@ -142,8 +149,7 @@ export const SubjectManager: React.FC = () => {
     }
   };
 
-  // Filtered Subjects
-  const displayedSubjects = subjects.filter((s) => {
+  const filteredSubjects = subjects.filter((s) => {
     if (filterDept && s.department_id !== filterDept) return false;
     if (filterYear && s.year_id !== filterYear) return false;
     if (filterSem && s.semester_id !== filterSem) return false;
@@ -154,9 +160,10 @@ export const SubjectManager: React.FC = () => {
     return true;
   });
 
+  const paginatedSubjects = filteredSubjects.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div className="space-y-6">
-      {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-100 tracking-tight">Subject &amp; Course Management</h2>
@@ -170,15 +177,22 @@ export const SubjectManager: React.FC = () => {
         </Button>
       </div>
 
-      {/* Filter and Search Bar */}
       <div className="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center gap-3">
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full relative">
           <Input
             icon={<Search className="w-4 h-4" />}
             placeholder="Search subjects by code or title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
           {departments.length > 1 && (
@@ -233,8 +247,8 @@ export const SubjectManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {displayedSubjects.length > 0 ? (
-                displayedSubjects.map((subject) => {
+              {paginatedSubjects.length > 0 ? (
+                paginatedSubjects.map((subject) => {
                   const dept = departments.find((d) => d.id === subject.department_id);
                   const year = years.find((y) => y.id === subject.year_id);
                   const semester = semesters.find((s) => s.id === subject.semester_id);
@@ -254,14 +268,26 @@ export const SubjectManager: React.FC = () => {
                         )}
                       </td>
                       <td className="px-5 py-4 text-slate-300">
-                        <span className="font-semibold text-emerald-400 mr-1.5">{dept?.code || 'DEPT'}</span>
-                        <span>•</span>
-                        <span className="ml-1.5">{year?.name || 'Year'} • {semester?.name || 'Sem'}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[11px] text-slate-300 font-medium">
+                            {dept ? dept.code : 'CSE'}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-xs text-slate-300">
+                            {year ? year.name : '1st Year'}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-xs text-slate-300">
+                            {semester ? semester.name : '1st Sem'}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-5 py-4 font-mono text-slate-400">{subject.credits}</td>
+                      <td className="px-5 py-4 font-mono text-slate-300">
+                        {subject.credits || 3.0} Cr
+                      </td>
                       <td className="px-5 py-4">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] font-semibold text-slate-300">
-                          {paperCount} papers
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono font-semibold">
+                          {paperCount} {paperCount === 1 ? 'paper' : 'papers'}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">
@@ -299,6 +325,23 @@ export const SubjectManager: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* 20 Items Per Page Pagination */}
+        {filteredSubjects.length > 0 && (
+          <div className="p-3 bg-slate-950/50 border-t border-slate-800/80">
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredSubjects.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              itemLabel="courses"
+            />
+          </div>
+        )}
       </div>
 
       {/* Add / Edit Subject Modal */}

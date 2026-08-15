@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutGrid,
   List as ListIcon,
@@ -10,11 +10,21 @@ import {
 import { usePapers } from '../../context/PaperContext';
 import { PaperCard } from './PaperCard';
 import { Button } from '../ui/Button';
+import { Pagination } from '../ui/Pagination';
 
 export const PaperList: React.FC = () => {
   const { filteredPapers, searchQuery, resetFilters, bookmarks, onlyBookmarked } = usePapers();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'downloads' | 'newest' | 'code'>('downloads');
+
+  // Pagination State (Default 20 per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset to page 1 on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filteredPapers.length, sortBy]);
 
   const sortedPapers = [...filteredPapers].sort((a, b) => {
     if (sortBy === 'downloads') {
@@ -28,6 +38,8 @@ export const PaperList: React.FC = () => {
     }
     return 0;
   });
+
+  const paginatedPapers = sortedPapers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-4">
@@ -87,20 +99,37 @@ export const PaperList: React.FC = () => {
       </div>
 
       {/* Main Papers Grid / List */}
-      {sortedPapers.length > 0 ? (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {sortedPapers.map((paper) => (
-              <PaperCard key={paper.id} paper={paper} viewMode="grid" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {sortedPapers.map((paper) => (
-              <PaperCard key={paper.id} paper={paper} viewMode="list" />
-            ))}
-          </div>
-        )
+      {paginatedPapers.length > 0 ? (
+        <>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {paginatedPapers.map((paper) => (
+                <PaperCard key={paper.id} paper={paper} viewMode="grid" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {paginatedPapers.map((paper) => (
+                <PaperCard key={paper.id} paper={paper} viewMode="list" />
+              ))}
+            </div>
+          )}
+
+          {/* 20 Items Per Page Pagination */}
+          {sortedPapers.length > pageSize && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={sortedPapers.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              itemLabel="papers"
+            />
+          )}
+        </>
       ) : (
         /* Empty State */
         <div className="glass-panel rounded-2xl p-12 text-center space-y-4">
