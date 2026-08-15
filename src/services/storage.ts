@@ -513,7 +513,40 @@ class StorageService {
   }
 
   // ==========================================
-  // 9. CLEAR ALL DATA & OPTIONAL SAMPLE SEED
+  // 9. LIVE D1 SYNCHRONIZATION SETTERS
+  // ==========================================
+  public setDepartments(depts: Department[]) {
+    this.departments = depts;
+    this.saveDepartments();
+  }
+
+  public setYears(years: AcademicYear[]) {
+    this.years = years;
+    this.saveYears();
+  }
+
+  public setSemesters(semesters: Semester[]) {
+    this.semesters = semesters;
+    this.saveSemesters();
+  }
+
+  public setExamTypes(examTypes: ExamType[]) {
+    this.examTypes = examTypes;
+    this.saveExamTypes();
+  }
+
+  public setSubjects(subjects: Subject[]) {
+    this.subjects = subjects;
+    this.saveSubjects();
+  }
+
+  public setPapers(papers: QuestionPaper[]) {
+    this.papers = papers;
+    this.savePapers();
+  }
+
+  // ==========================================
+  // 10. CLEAR ALL DATA & OPTIONAL SAMPLE SEED
   // ==========================================
   public clearAllData() {
     this.subjects = [];

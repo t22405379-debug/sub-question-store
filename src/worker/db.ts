@@ -8,11 +8,14 @@ import { D1Database } from './types';
 
 export async function querySubjects(db: D1Database, yearId?: string, semesterId?: string) {
   let query = `
-    SELECT s.*, y.name as year_name, sem.name as semester_name, d.name as department_name
+    SELECT s.*, 
+           COALESCE(y.name, s.year_id) as year_name, 
+           COALESCE(sem.name, s.semester_id) as semester_name, 
+           COALESCE(d.name, s.department_id) as department_name
     FROM subjects s
-    JOIN academic_years y ON s.year_id = y.id
-    JOIN semesters sem ON s.semester_id = sem.id
-    JOIN departments d ON s.department_id = d.id
+    LEFT JOIN academic_years y ON s.year_id = y.id
+    LEFT JOIN semesters sem ON s.semester_id = sem.id
+    LEFT JOIN departments d ON s.department_id = d.id
   `;
   const params: any[] = [];
 
@@ -35,20 +38,25 @@ export async function querySubjects(db: D1Database, yearId?: string, semesterId?
 
 export async function queryQuestionPapers(db: D1Database, isAdmin = false, filters?: any) {
   let query = `
-    SELECT p.*, s.name as subject_name, s.code as course_code,
-           e.name as exam_type_name, e.code as exam_type_code, e.color_badge as badge_color,
-           y.name as year_name, sem.name as semester_name
+    SELECT p.*, 
+           COALESCE(s.name, 'Subject') as subject_name, 
+           COALESCE(s.code, 'CSE') as course_code,
+           COALESCE(e.name, 'Exam') as exam_type_name, 
+           COALESCE(e.code, 'Exam') as exam_type_code, 
+           COALESCE(e.color_badge, 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30') as badge_color,
+           COALESCE(y.name, 'Year') as year_name, 
+           COALESCE(sem.name, 'Semester') as semester_name
     FROM question_papers p
-    JOIN subjects s ON p.subject_id = s.id
-    JOIN exam_types e ON p.exam_type_id = e.id
-    JOIN academic_years y ON s.year_id = y.id
-    JOIN semesters sem ON s.semester_id = sem.id
+    LEFT JOIN subjects s ON p.subject_id = s.id
+    LEFT JOIN exam_types e ON p.exam_type_id = e.id
+    LEFT JOIN academic_years y ON s.year_id = y.id
+    LEFT JOIN semesters sem ON s.semester_id = sem.id
   `;
   const whereClauses: string[] = [];
   const params: any[] = [];
 
   if (!isAdmin) {
-    whereClauses.push(`p.visibility = 1`);
+    whereClauses.push(`(p.visibility = 1 OR p.visibility IS NULL)`);
   }
 
   if (filters?.subjectId) {
@@ -114,4 +122,24 @@ export async function incrementPaperDownloads(db: D1Database, paperId: string) {
     WHERE id = ?
   `);
   return await stmt.bind(paperId).run();
+}
+
+export async function getBootstrapData(db: D1Database) {
+  const [departments, years, semesters, examTypes, subjects, papers] = await Promise.all([
+    db.prepare(`SELECT * FROM departments ORDER BY name ASC`).all().then(r => r.results || []).catch(() => []),
+    db.prepare(`SELECT * FROM academic_years ORDER BY order_index ASC`).all().then(r => r.results || []).catch(() => []),
+    db.prepare(`SELECT * FROM semesters ORDER BY order_index ASC`).all().then(r => r.results || []).catch(() => []),
+    db.prepare(`SELECT * FROM exam_types ORDER BY order_index ASC`).all().then(r => r.results || []).catch(() => []),
+    querySubjects(db).then(r => r.results || []).catch(() => []),
+    queryQuestionPapers(db, false).then(r => r.results || []).catch(() => []),
+  ]);
+
+  return {
+    departments,
+    years,
+    semesters,
+    examTypes,
+    subjects,
+    papers,
+  };
 }

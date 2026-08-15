@@ -1,5 +1,5 @@
 import { Env, ExecutionContext } from './types';
-import { querySubjects, queryQuestionPapers, incrementPaperDownloads } from './db';
+import { querySubjects, queryQuestionPapers, incrementPaperDownloads, getBootstrapData } from './db';
 import { fetchFromR2, uploadToR2 } from './r2';
 
 export default {
@@ -11,6 +11,9 @@ export default {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     };
 
     if (request.method === 'OPTIONS') {
@@ -105,18 +108,27 @@ export default {
         );
       }
 
-      // 3. Query Subjects from D1
+      // 3. Complete D1 Bootstrap & Live Sync Endpoint
+      if (path === '/api/sync' && request.method === 'GET') {
+        if (!env.DB) {
+          return jsonResponse({ success: false, error: 'D1 not connected' }, corsHeaders, 500);
+        }
+        const data = await getBootstrapData(env.DB);
+        return jsonResponse({ success: true, data }, corsHeaders);
+      }
+
+      // 4. Query Subjects from D1
       if (path === '/api/subjects' && request.method === 'GET') {
         const yearId = url.searchParams.get('yearId') || undefined;
         const semId = url.searchParams.get('semesterId') || undefined;
         if (env.DB) {
           const results = await querySubjects(env.DB, yearId, semId);
-          return jsonResponse(results, corsHeaders);
+          return jsonResponse({ success: true, results: results.results || [] }, corsHeaders);
         }
-        return jsonResponse([], corsHeaders);
+        return jsonResponse({ success: true, results: [] }, corsHeaders);
       }
 
-      // 4. Query Question Papers from D1
+      // 5. Query Question Papers from D1
       if (path === '/api/papers' && request.method === 'GET') {
         const isAdmin = url.searchParams.get('admin') === 'true';
         if (env.DB) {
@@ -125,12 +137,12 @@ export default {
             examTypeId: url.searchParams.get('examTypeId'),
             sessionYear: url.searchParams.get('sessionYear'),
           });
-          return jsonResponse(results, corsHeaders);
+          return jsonResponse({ success: true, results: results.results || [] }, corsHeaders);
         }
-        return jsonResponse([], corsHeaders);
+        return jsonResponse({ success: true, results: [] }, corsHeaders);
       }
 
-      // 5. Upload File Directly to R2 Bucket
+      // 6. Upload File Directly to R2 Bucket
       if (path === '/api/papers/upload' && request.method === 'POST') {
         if (!env.PAPERS_BUCKET) {
           return jsonResponse({ error: 'R2 bucket PAPERS_BUCKET is not bound in Cloudflare' }, corsHeaders, 500);
@@ -525,6 +537,9 @@ function jsonResponse(data: any, headers: Record<string, string>, status = 200) 
     status,
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
       ...headers,
     },
   });

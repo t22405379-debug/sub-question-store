@@ -104,7 +104,8 @@ export const PaperProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeViewingPaper, setActiveViewingPaper] = useState<QuestionPaper | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
+    // 1. Instant local cache load for zero UI delay
     const depts = storageService.getDepartments();
     setDepartments(depts);
     setYears(storageService.getYears());
@@ -114,9 +115,53 @@ export const PaperProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPapers(storageService.getPapers(false));
     setBookmarks(storageService.getBookmarks());
 
-    // Auto-select first department if none selected
     if (depts.length > 0) {
       setSelectedDepartmentId((prev) => (prev && depts.some((d) => d.id === prev) ? prev : depts[0].id));
+    }
+
+    // 2. Fetch live D1 database state (Cache-Busted with no-store)
+    try {
+      const res = await fetch('/api/sync', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const { departments: liveDepts, years: liveYears, semesters: liveSems, examTypes: liveExams, subjects: liveSubs, papers: livePapers } = json.data;
+
+          if (Array.isArray(liveDepts) && liveDepts.length > 0) {
+            setDepartments(liveDepts);
+            storageService.setDepartments(liveDepts);
+          }
+          if (Array.isArray(liveYears) && liveYears.length > 0) {
+            setYears(liveYears);
+            storageService.setYears(liveYears);
+          }
+          if (Array.isArray(liveSems) && liveSems.length > 0) {
+            setSemesters(liveSems);
+            storageService.setSemesters(liveSems);
+          }
+          if (Array.isArray(liveExams) && liveExams.length > 0) {
+            setExamTypes(liveExams);
+            storageService.setExamTypes(liveExams);
+          }
+          if (Array.isArray(liveSubs) && liveSubs.length > 0) {
+            setSubjects(liveSubs);
+            storageService.setSubjects(liveSubs);
+          }
+          if (Array.isArray(livePapers) && livePapers.length > 0) {
+            setPapers(livePapers);
+            storageService.setPapers(livePapers);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('D1 live sync fallback to local storage:', err);
     }
   }, []);
 
