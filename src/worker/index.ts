@@ -72,7 +72,23 @@ export default {
           return jsonResponse({ success: false, error: 'D1 database not connected' }, corsHeaders, 500);
         }
 
-        const { username, password } = await request.json() as any;
+        // Ensure admin_users table exists
+        try {
+          await env.DB.exec(`
+            CREATE TABLE IF NOT EXISTS admin_users (
+              id TEXT PRIMARY KEY,
+              username TEXT NOT NULL UNIQUE,
+              password_hash TEXT NOT NULL,
+              salt TEXT NOT NULL,
+              display_name TEXT NOT NULL,
+              role TEXT DEFAULT 'admin',
+              last_login DATETIME,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+        } catch (e) {}
+
+        const { username, password } = (await request.json().catch(() => ({}))) as any;
         if (!username || !password) {
           return jsonResponse({ success: false, error: 'Username and password required' }, corsHeaders, 400);
         }
@@ -90,12 +106,50 @@ export default {
             role: string;
           }>();
 
+        if (!userRow) {
+          // If no admin users exist at all in D1, initialize this first user as Super Admin
+          const adminCount = await env.DB.prepare('SELECT COUNT(*) as total FROM admin_users')
+            .first<{ total: number }>()
+            .catch(() => ({ total: 0 }));
+
+          if (!adminCount || adminCount.total === 0) {
+            const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+            const saltHex = bufferToHex(saltBytes.buffer);
+            const passwordHash = await pbkdf2Hash(password, saltHex);
+            const newAdminId = `admin_${Date.now()}`;
+
+            await env.DB.prepare(
+              'INSERT INTO admin_users (id, username, password_hash, salt, display_name, role) VALUES (?, ?, ?, ?, ?, ?)'
+            )
+              .bind(newAdminId, username.trim(), passwordHash, saltHex, 'Administrator', 'super_admin')
+              .run();
+
+            const token = `cf_${Date.now()}_${crypto.randomUUID()}`;
+            return jsonResponse(
+              {
+                success: true,
+                token,
+                user: {
+                  id: newAdminId,
+                  username: username.trim(),
+                  display_name: 'Administrator',
+                  role: 'super_admin',
+                },
+                message: 'Admin account initialized and logged in',
+              },
+              corsHeaders
+            );
+          }
+
+          return jsonResponse({ success: false, error: 'Invalid username or password credentials.' }, corsHeaders, 401);
+        }
+
         // Verify PBKDF2 hash with 100,000 iterations using Web Crypto API
         const computedHash = await pbkdf2Hash(password, userRow.salt);
         const isMatch = timingSafeEqual(computedHash, userRow.password_hash);
 
         if (!isMatch) {
-          return jsonResponse({ success: false, error: 'Invalid credentials' }, corsHeaders, 401);
+          return jsonResponse({ success: false, error: 'Invalid username or password credentials.' }, corsHeaders, 401);
         }
 
         // Update last login timestamp in D1
